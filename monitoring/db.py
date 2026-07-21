@@ -16,12 +16,16 @@ Community Cloud; the same two-table shape ports to Postgres if needed.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_FILE = ROOT / "monitoring" / "advisor.db"
+
+# Overridable so docker-compose can point both services at a shared volume
+# (mounting a volume over monitoring/ itself would shadow this code).
+DB_FILE = Path(os.environ.get("ADVISOR_DB_PATH", ROOT / "monitoring" / "advisor.db"))
 
 
 def get_connection() -> sqlite3.Connection:
@@ -31,6 +35,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
+    DB_FILE.parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection()
     try:
         conn.execute("""

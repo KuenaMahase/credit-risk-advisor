@@ -59,13 +59,31 @@ sources.yaml -> ingestion (dlt) -> DuckDB KB + chunks.jsonl
                           grounded prompt -> LLM -> cited answer
 ```
 
-*(UI, feedback logging, and monitoring dashboard to be added.)*
+The Streamlit UI logs conversations and feedback to SQLite, and the monitoring
+dashboard reads that shared store.
 
 ## Quickstart
+
+### Docker (recommended)
 
 ```bash
 git clone https://github.com/KuenaMahase/credit-risk-advisor.git
 cd credit-risk-advisor
+cp .env.example .env      # add your OpenAI API key
+docker compose up --build
+# app:       http://localhost:8501
+# dashboard: http://localhost:8502
+```
+
+Everything runs in compose: the assistant and the monitoring dashboard share
+one image and one SQLite volume. The image build downloads the source PDF,
+builds the knowledge base with the dlt pipeline, and bakes the embedding +
+reranking models in — so `up` needs no other host-side steps. The first build
+takes a while (PyTorch); rebuilds are cached.
+
+### Local (venv)
+
+```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env              # add your OpenAI API key
@@ -154,4 +172,5 @@ table.
 
 ## Self-evaluation against the rubric
 
-*(to be filled in before submission — one row per criterion with evidence links)*
+The final self-evaluation table will map every claimed point to evidence in the
+submitted commit.

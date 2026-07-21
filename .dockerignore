@@ -1,0 +1,18 @@
+# Secrets — the API key reaches containers via env_file at runtime, never the image
+.env
+
+# Local environments and VCS
+.venv/
+venv/
+.git/
+.claude/
+__pycache__/
+*.pyc
+
+# Data artifacts — the image rebuilds the knowledge base at build time
+data/raw/
+data/processed/
+monitoring/*.db
+
+# OS
+.DS_Store

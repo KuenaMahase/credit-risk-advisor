@@ -1,0 +1,35 @@
+# Everything runs in compose: the assistant app and the monitoring dashboard
+# share one image and one SQLite volume (the app writes conversations and
+# feedback; the dashboard reads them).
+#
+#   docker compose up --build
+#   app:       http://localhost:8501
+#   dashboard: http://localhost:8502
+#
+# Requires .env at the repo root with OPENAI_API_KEY (see .env.example).
+
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      ADVISOR_DB_PATH: /data/advisor.db
+    volumes:
+      - monitoring_data:/data
+
+  dashboard:
+    build: .
+    command: ["streamlit", "run", "monitoring/dashboard.py",
+              "--server.port=8502", "--server.address=0.0.0.0"]
+    ports:
+      - "8502:8502"
+    environment:
+      ADVISOR_DB_PATH: /data/advisor.db
+    volumes:
+      - monitoring_data:/data
+
+volumes:
+  monitoring_data:
