@@ -1,0 +1,26 @@
+# Core
+requests==2.32.3
+pyyaml==6.0.2
+pypdf==5.1.0
+
+# RAG / search
+minsearch==0.0.4
+sentence-transformers==3.3.1
+numpy==1.26.4
+
+# LLM client (works with OpenAI, Groq, Ollama via base_url)
+# >=1.66 needed for the Responses API (client.responses.*)
+openai==2.46.0
+python-dotenv==1.0.1
+
+# Ingestion pipeline (dlt -> DuckDB knowledge base)
+dlt[duckdb]==1.28.0
+
+# App + monitoring
+streamlit==1.41.1
+pandas==2.2.3
+plotly==5.24.1
+
+# Eval
+scikit-learn==1.6.0
+tqdm==4.67.1

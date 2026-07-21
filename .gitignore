@@ -1,0 +1,27 @@
+# Raw and processed data — NOT committed.
+# The ingestion pipeline downloads source documents at runtime from the
+# official regulator sites, so we never redistribute third-party PDFs.
+data/raw/*.pdf
+data/processed/*.jsonl
+data/processed/embeddings.npy
+data/processed/embeddings.meta.json
+data/processed/*.duckdb
+
+# Environment / secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Monitoring local store
+monitoring/*.db
+
+# OS
+.DS_Store
+
+# Claude Code local settings
+.claude/

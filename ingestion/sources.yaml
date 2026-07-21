@@ -1,0 +1,22 @@
+# Knowledge base sources for the Credit Risk Advisor.
+# All documents are public regulatory / supervisory publications.
+# Add or remove entries here — the ingestion pipeline reads this file,
+# so no code changes are needed to extend the corpus.
+
+sources:
+  - id: basel_credit_risk_standardised
+    title: "Basel III — Standardised Approach for Credit Risk"
+    url: "https://www.bis.org/bcbs/publ/d424.pdf"
+    category: credit_risk
+    description: "Basel III finalising post-crisis reforms — credit risk framework."
+
+# NOTE: URLs point to public regulator sites. If a URL changes (regulators
+# occasionally reorganise their sites), update it here. The pipeline validates
+# that each download is a real PDF before processing.
+#
+# FATF AML/KYC sources were removed 2026-07 because fatf-gafi.org sits behind
+# a Cloudflare bot challenge that 403s any scripted download, which would
+# break reproducibility for reviewers. To extend the corpus with a document
+# that can't be fetched automatically, download the PDF in a browser, save it
+# as data/raw/<id>.pdf, and add its entry here — the pipeline skips the
+# download step for files already present in data/raw/.
