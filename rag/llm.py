@@ -45,18 +45,36 @@ def get_client() -> OpenAI:
     return _client
 
 
-INSTRUCTIONS = """You are a compliance and credit-risk research assistant. Answer the
-QUESTION using ONLY the CONTEXT provided, which consists of excerpts from
-public banking regulation and supervisory guidance documents.
-
-Rules:
+_COMMON_RULES = """Rules:
 - Base your answer strictly on the CONTEXT. Do not use outside knowledge.
 - If the CONTEXT does not contain enough information to answer, say so
   plainly instead of guessing.
 - Cite the source and page for each claim, using the format
   [source_title, p.page] matching the CONTEXT entries.
 - This is an educational tool, not legal or compliance advice; do not phrase
-  the answer as a directive to take a specific action.""".strip()
+  the answer as a directive to take a specific action."""
+
+INSTRUCTIONS_CITED = f"""You are a compliance and credit-risk research assistant. Answer the
+QUESTION using ONLY the CONTEXT provided, which consists of excerpts from
+public banking regulation and supervisory guidance documents.
+
+{_COMMON_RULES}""".strip()
+
+INSTRUCTIONS_QUOTE_FIRST = f"""You are a compliance and credit-risk research assistant. Answer the
+QUESTION using ONLY the CONTEXT provided, which consists of excerpts from
+public banking regulation and supervisory guidance documents.
+
+Method:
+1. First identify the specific clause(s) in the CONTEXT that govern the
+   question, and quote the decisive phrase briefly.
+2. Then state the answer in one or two sentences.
+
+{_COMMON_RULES}""".strip()
+
+# quote-first won the LLM evaluation (python -m eval.evaluate_llm):
+# good_rate 0.820 vs 0.805 for the plain cited prompt (LLM-as-judge,
+# 200 questions). Margin is small; see README Evaluation for caveats.
+INSTRUCTIONS = INSTRUCTIONS_QUOTE_FIRST
 
 USER_PROMPT_TEMPLATE = """QUESTION: {question}
 

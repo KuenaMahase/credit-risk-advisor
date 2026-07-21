@@ -107,7 +107,21 @@ Findings:
 
 ### LLM answers
 
-*(LLM answer evaluation — prompt variants + LLM-as-judge — to be reported here)*
+Two prompt variants were compared with an LLM-as-a-judge (`python -m eval.evaluate_llm`)
+on 200 seeded ground-truth questions, both using the winning `rerank` retrieval.
+The judge marks each answer good/bad against the source excerpt the question
+was generated from; refusals count as bad when the excerpt does contain the
+answer, so retrieval misses are folded into end-to-end quality.
+
+| Prompt variant                                           | Good rate | n   |
+|----------------------------------------------------------|-----------|-----|
+| v1_cited (answer with citations)                         | 0.805     | 200 |
+| v2_quote_first (quote the governing clause, then answer) | **0.820** | 200 |
+
+`v2_quote_first` is used in production (`INSTRUCTIONS` in `rag/llm.py`).
+Caveats worth knowing: the margin is small (3 answers out of 200), and the
+judge is the same model family as the generator (gpt-4o-mini judging
+gpt-4o-mini) — a standard setup for course projects, but a known bias.
 
 ## Monitoring
 
