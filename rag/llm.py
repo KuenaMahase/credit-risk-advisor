@@ -30,9 +30,10 @@ load_dotenv(ROOT / ".env")
 
 LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
 
-# hybrid is the default pending formal comparison in eval/ (hit-rate/MRR
-# across the SEARCH_MODES); swap here once that evaluation lands.
-DEFAULT_SEARCH_MODE = "hybrid"
+# rerank won the retrieval evaluation (python -m eval.evaluate_retrieval):
+# hit rate 0.911 / MRR 0.768 vs 0.816/0.595 for the next-best mode (hybrid),
+# at ~184ms — acceptable for an interactive assistant. See README Evaluation.
+DEFAULT_SEARCH_MODE = "rerank"
 
 _client: OpenAI | None = None
 

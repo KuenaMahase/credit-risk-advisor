@@ -33,7 +33,10 @@ from rag.index import (
 )
 
 DEFAULT_NUM_RESULTS = 5
-RRF_K = 60  # standard default from the original RRF paper (Cormack et al., 2009)
+# Tuned on eval/ground_truth.csv (python -m eval.evaluate_retrieval --tune):
+# k=10 beat the classic k=60 default on hit rate (0.822 vs 0.796); candidate
+# pool size had little effect, so the 4x formula below is kept.
+RRF_K = 10
 
 
 def keyword_search(
@@ -62,12 +65,17 @@ def _reciprocal_rank_fusion(ranked_lists: list[list[dict]], k: int = RRF_K) -> l
 
 
 def hybrid_search(
-    query: str, num_results: int = DEFAULT_NUM_RESULTS, filter_dict: dict | None = None
+    query: str,
+    num_results: int = DEFAULT_NUM_RESULTS,
+    filter_dict: dict | None = None,
+    rrf_k: int = RRF_K,
+    num_candidates: int | None = None,
 ) -> list[dict]:
-    num_candidates = max(num_results * 4, 20)  # wider pool so fusion has overlap to work with
+    if num_candidates is None:
+        num_candidates = max(num_results * 4, 20)  # wider pool gives fusion overlap to work with
     kw_results = keyword_search(query, num_results=num_candidates, filter_dict=filter_dict)
     vec_results = vector_search(query, num_results=num_candidates, filter_dict=filter_dict)
-    fused = _reciprocal_rank_fusion([kw_results, vec_results])
+    fused = _reciprocal_rank_fusion([kw_results, vec_results], k=rrf_k)
     return fused[:num_results]
 
 
