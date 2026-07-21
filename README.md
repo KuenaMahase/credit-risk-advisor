@@ -75,6 +75,9 @@ python ingestion/dlt_pipeline.py  # dlt pipeline: downloads sources, loads the
 
 python -m rag.search "risk weight for unrated corporates"   # retrieval only
 python -m rag.llm "What is the risk weight for a corporate exposure with no external credit rating?"
+
+streamlit run app/app.py               # the assistant UI (with feedback buttons)
+streamlit run monitoring/dashboard.py  # monitoring dashboard (6 charts + table)
 ```
 
 ## Evaluation
@@ -125,7 +128,20 @@ gpt-4o-mini) — a standard setup for course projects, but a known bias.
 
 ## Monitoring
 
-*(feedback collection + dashboard description to be added)*
+Every question answered in the app is logged to a SQLite store
+(`monitoring/advisor.db`, gitignored) with the retrieval mode, token usage,
+cost, and response time. Each answer also gets two quality signals:
+
+- **User feedback** — 👍/👎 buttons in the app (`feedback` table, source `user`).
+- **Online LLM judge** — every live answer is auto-classified as
+  RELEVANT / PARTLY_RELEVANT / NON_RELEVANT with an explanation
+  (`monitoring/judge.py`, source `judge`) — no ground truth needed.
+
+`streamlit run monitoring/dashboard.py` shows headline metrics (conversations,
+avg response time, total cost, avg tokens, 👍 rate) and six charts: query
+volume, user feedback split, judge relevance distribution, response time,
+cumulative LLM cost, and retrieval-mode usage, plus a recent-conversations
+table.
 
 ## Limitations
 

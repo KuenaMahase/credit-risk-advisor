@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -91,7 +92,13 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
     return USER_PROMPT_TEMPLATE.format(question=question, context=build_context(chunks))
 
 
-def llm(user_prompt: str, instructions: str = INSTRUCTIONS) -> str:
+# gpt-4o-mini pricing per 1M tokens, used for the monitoring cost column.
+PRICE_PER_M_INPUT = 0.15
+PRICE_PER_M_OUTPUT = 0.60
+
+
+def llm_with_usage(user_prompt: str, instructions: str = INSTRUCTIONS):
+    """Call the LLM and return (answer_text, usage) for metrics logging."""
     response = get_client().responses.create(
         model=LLM_MODEL,
         input=[
@@ -100,7 +107,12 @@ def llm(user_prompt: str, instructions: str = INSTRUCTIONS) -> str:
         ],
         temperature=0.0,
     )
-    return response.output_text
+    return response.output_text, response.usage
+
+
+def llm(user_prompt: str, instructions: str = INSTRUCTIONS) -> str:
+    text, _ = llm_with_usage(user_prompt, instructions)
+    return text
 
 
 def answer(
@@ -110,9 +122,11 @@ def answer(
 ) -> dict:
     """Run the full RAG flow: retrieve -> build prompt -> call the LLM.
 
-    Returns {"answer", "sources", "search_mode"} so the app layer can show
-    citations alongside the generated answer.
+    Returns the answer plus sources and per-call metrics (tokens, cost,
+    response time) so the app layer can show citations and the monitoring
+    store can log every conversation.
     """
+    start = time.perf_counter()
     search_fn = SEARCH_MODES[search_mode]
     chunks = search_fn(question, num_results=num_results)
     if not chunks:
@@ -120,10 +134,28 @@ def answer(
             "answer": "I couldn't find anything in the knowledge base relevant to this question.",
             "sources": [],
             "search_mode": search_mode,
+            "model": LLM_MODEL,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "response_time": time.perf_counter() - start,
+            "cost": 0.0,
         }
     prompt = build_prompt(question, chunks)
-    generated = llm(prompt)
-    return {"answer": generated, "sources": chunks, "search_mode": search_mode}
+    generated, usage = llm_with_usage(prompt)
+    cost = (usage.input_tokens * PRICE_PER_M_INPUT
+            + usage.output_tokens * PRICE_PER_M_OUTPUT) / 1_000_000
+    return {
+        "answer": generated,
+        "sources": chunks,
+        "search_mode": search_mode,
+        "model": LLM_MODEL,
+        "prompt_tokens": usage.input_tokens,
+        "completion_tokens": usage.output_tokens,
+        "total_tokens": usage.total_tokens,
+        "response_time": time.perf_counter() - start,
+        "cost": cost,
+    }
 
 
 DEMO_QUESTIONS = [
