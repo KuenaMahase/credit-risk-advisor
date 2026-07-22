@@ -232,8 +232,25 @@ Bonus not yet attempted: cloud deployment (0 / 2) and exceptional contribution
 
 ### Reproducibility check
 
-*(fresh `git clone` → `docker compose up --build` walkthrough and result to be
-recorded here.)*
+Verified on 2026-07-22 with a clean clone (commit `d5ff8c8`; this section is the
+only change since), following the documented Docker path exactly:
+
+```bash
+git clone https://github.com/KuenaMahase/credit-risk-advisor.git
+cd credit-risk-advisor
+cp .env.example .env      # add OPENAI_API_KEY
+docker compose up --build
+```
+
+Result:
+
+- The clone contains no `chunks.jsonl`, `kb.duckdb`, or `advisor.db` — all
+  gitignored. The image build produced the knowledge base itself (707 chunks)
+  from `ingestion/sources.yaml`, so nothing local is assumed.
+- Both services reported `healthy` (`docker compose ps`); app on `:8501`,
+  dashboard on `:8502`.
+- A question answered inside the freshly built container returned a correct,
+  cited answer (100% risk weight for unrated corporate exposures, p.17).
 
 ### Deployment notes
 
