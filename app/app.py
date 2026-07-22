@@ -63,15 +63,12 @@ def render_app(set_page_config: bool = True) -> None:
 
     with st.sidebar:
         st.header("Settings")
-        search_mode = cast(
-            str,
-            st.selectbox(
-                "Retrieval mode",
-                options=list(SEARCH_MODES),
-                index=list(SEARCH_MODES).index(DEFAULT_SEARCH_MODE),
-                help="rerank won the retrieval evaluation (hit rate 0.911 / MRR 0.768) "
-                "and is the default; the others are kept for comparison.",
-            ),
+        search_mode = st.selectbox(
+            "Retrieval mode",
+            options=list(SEARCH_MODES),
+            index=list(SEARCH_MODES).index(DEFAULT_SEARCH_MODE),
+            help="rerank won the retrieval evaluation (hit rate 0.911 / MRR 0.768) "
+            "and is the default; the others are kept for comparison.",
         )
         use_rewrite = st.checkbox(
             "Rewrite query into Basel terminology",
