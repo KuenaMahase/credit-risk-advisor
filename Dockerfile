@@ -9,15 +9,24 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir "torch==2.8.0" --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-
 # Build the knowledge base and warm the retrieval stack at image build time:
 # downloads the Basel III PDF, loads the DuckDB KB + chunks.jsonl via the dlt
 # pipeline, then runs one rerank query so the sentence-transformer and
 # cross-encoder models and the chunk embeddings are all baked into the image.
 # `docker compose up` therefore needs no host-side steps and answers fast.
+COPY ingestion ./ingestion
+COPY rag ./rag
 RUN python ingestion/dlt_pipeline.py && \
     python -c "from rag.search import rerank_search; rerank_search('warm-up query')"
+
+# Application code changes rebuild the light final layer. Documentation and
+# screenshots are intentionally absent from the runtime image, so editing the
+# README does not repeat ingestion and model warming.
+COPY app ./app
+COPY monitoring ./monitoring
+COPY eval ./eval
+COPY tests ./tests
+COPY streamlit_app.py .
 
 EXPOSE 8501
 
