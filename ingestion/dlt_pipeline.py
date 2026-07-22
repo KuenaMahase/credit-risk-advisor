@@ -1,5 +1,5 @@
 """
-dlt-based ingestion pipeline for the Credit Risk & AML Advisor.
+dlt-based ingestion pipeline for the Credit Risk Advisor.
 
 Same flow as ingest.py (download PDF -> extract -> clean -> chunk) but the
 chunk records are loaded with dlt into a DuckDB knowledge base, with

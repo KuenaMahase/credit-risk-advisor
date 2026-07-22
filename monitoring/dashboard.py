@@ -122,8 +122,13 @@ with right:
 
 st.subheader("Recent conversations")
 recent = conversations.sort_values("timestamp", ascending=False).head(20)
+recent_cols = ["timestamp", "question", "search_mode", "total_tokens", "response_time", "cost"]
+# rewritten_query is only present once the rewrite toggle has been used; show it
+# when it carries data so reviewers can audit rewrite runs.
+if "rewritten_query" in recent.columns and recent["rewritten_query"].notna().any():
+    recent_cols.insert(2, "rewritten_query")
 st.dataframe(
-    recent[["timestamp", "question", "search_mode", "total_tokens", "response_time", "cost"]],
+    recent[recent_cols],
     use_container_width=True,
     hide_index=True,
 )

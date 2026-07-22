@@ -1,5 +1,5 @@
 """
-Automated ingestion pipeline for the Credit Risk & AML Advisor.
+Automated ingestion pipeline for the Credit Risk Advisor.
 
 Flow:  download PDF  ->  extract text  ->  clean  ->  chunk  ->  write JSONL
 

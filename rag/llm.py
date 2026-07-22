@@ -1,5 +1,5 @@
 """
-LLM answer generation for the Credit Risk & AML Advisor.
+LLM answer generation for the Credit Risk Advisor.
 
 Takes a question, retrieves grounding context via rag.search, and calls the
 OpenAI Responses API with system-level rules in the `developer` role and the

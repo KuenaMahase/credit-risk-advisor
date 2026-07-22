@@ -156,7 +156,7 @@ same 450 ground-truth questions (`python -m eval.evaluate_rewrite`):
 | Queries   | Hit rate  | MRR       | Overhead per query   |
 |-----------|-----------|-----------|----------------------|
 | original  | **0.911** | **0.768** | —                    |
-| rewritten | 0.753     | 0.586     | +1.7 s, ~211 tokens  |
+| rewritten | 0.756     | 0.581     | +1.4 s, ~211 tokens  |
 
 Rewriting **hurts** on this ground truth, so it is **off by default** and
 exposed as an evaluated optional toggle in the app. Why: the ground-truth
@@ -165,6 +165,12 @@ framework's own vocabulary — rewriting paraphrases them away from the wording
 retrieval matches on. The toggle exists for the case rewriting was built for:
 terse practitioner shorthand (like the CCF example above), which the ground
 truth does not contain.
+
+The per-question rewrites are committed to `eval/rewrite_queries.csv`, so this
+comparison reproduces from cache with no API calls (`python -m eval.evaluate_rewrite`;
+pass `--refresh` to regenerate them from the model). When the toggle is used in
+the app, the rewritten query and its tokens/latency/cost are logged to the
+monitoring store and shown in the dashboard's recent-conversations table.
 
 ## Monitoring
 

@@ -34,6 +34,17 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+# Columns added after the first schema shipped. Kept as a migration so an
+# existing advisor.db (e.g. a reviewer's) gains them without being recreated.
+# rewritten_query is NULL unless the query-rewriting toggle was used.
+_ADDED_COLUMNS = {
+    "rewritten_query": "TEXT",
+    "rewrite_tokens": "INTEGER NOT NULL DEFAULT 0",
+    "rewrite_cost": "REAL NOT NULL DEFAULT 0",
+    "rewrite_time": "REAL NOT NULL DEFAULT 0",
+}
+
+
 def init_db() -> None:
     DB_FILE.parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection()
@@ -50,9 +61,17 @@ def init_db() -> None:
                 completion_tokens INTEGER NOT NULL,
                 total_tokens INTEGER NOT NULL,
                 response_time REAL NOT NULL,
-                cost REAL NOT NULL
+                cost REAL NOT NULL,
+                rewritten_query TEXT,
+                rewrite_tokens INTEGER NOT NULL DEFAULT 0,
+                rewrite_cost REAL NOT NULL DEFAULT 0,
+                rewrite_time REAL NOT NULL DEFAULT 0
             )
         """)
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(conversations)")}
+        for name, decl in _ADDED_COLUMNS.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE conversations ADD COLUMN {name} {decl}")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,9 +92,17 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def save_conversation(question: str, result: dict) -> int:
-    """Log one answered question. `result` is the dict from rag.llm.answer()."""
+def save_conversation(question: str, result: dict, rewrite: dict | None = None) -> int:
+    """Log one answered question.
+
+    `result` is the dict from rag.llm.answer(). `rewrite`, when the
+    query-rewriting toggle was used, is
+    {"query": str, "tokens": int, "cost": float, "time": float} — the
+    rewritten query actually sent to retrieval and what rewriting cost.
+    `question` always stores the original user question.
+    """
     init_db()
+    rewrite = rewrite or {}
     conn = get_connection()
     try:
         cur = conn.execute(
@@ -83,8 +110,9 @@ def save_conversation(question: str, result: dict) -> int:
             INSERT INTO conversations (
                 timestamp, question, answer, search_mode, model,
                 prompt_tokens, completion_tokens, total_tokens,
-                response_time, cost
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                response_time, cost,
+                rewritten_query, rewrite_tokens, rewrite_cost, rewrite_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 _now(),
@@ -97,6 +125,10 @@ def save_conversation(question: str, result: dict) -> int:
                 result["total_tokens"],
                 result["response_time"],
                 result["cost"],
+                rewrite.get("query"),
+                rewrite.get("tokens", 0),
+                rewrite.get("cost", 0.0),
+                rewrite.get("time", 0.0),
             ),
         )
         conn.commit()

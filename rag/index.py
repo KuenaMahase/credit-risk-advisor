@@ -1,5 +1,5 @@
 """
-Retrieval indices for the Credit Risk & AML Advisor.
+Retrieval indices for the Credit Risk Advisor.
 
 Loads data/processed/chunks.jsonl (produced by ingestion/ingest.py) and builds:
   - a minsearch.Index for keyword (TF-IDF) search

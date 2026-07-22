@@ -1,5 +1,5 @@
 """
-Retrieval entry point for the Credit Risk & AML Advisor.
+Retrieval entry point for the Credit Risk Advisor.
 
 Exposes four search modes over data/processed/chunks.jsonl:
   - keyword_search  : TF-IDF / exact-term matching (minsearch.Index)

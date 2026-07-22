@@ -11,6 +11,7 @@ thumbs up/down (saved as feedback source='user').
 """
 
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -19,7 +20,13 @@ import streamlit as st
 
 from monitoring.db import save_conversation, save_feedback
 from monitoring.judge import evaluate_relevance
-from rag.llm import DEFAULT_SEARCH_MODE, answer, rewrite_query
+from rag.llm import (
+    DEFAULT_SEARCH_MODE,
+    PRICE_PER_M_INPUT,
+    PRICE_PER_M_OUTPUT,
+    answer,
+    rewrite_query_with_usage,
+)
 from rag.search import SEARCH_MODES
 
 st.set_page_config(page_title="Credit Risk Advisor", page_icon="🏦")
@@ -44,7 +51,7 @@ with st.sidebar:
         value=False,
         help="Expands shorthand like 'CCF for trade LCs' into framework wording "
         "before retrieval. Off by default: on already-well-formed questions the "
-        "evaluation showed it reduces hit rate (0.911 → 0.753) and adds ~1.7s "
+        "evaluation showed it reduces hit rate (0.911 → 0.756) and adds ~1.4s "
         "— see the README's Evaluation section.",
     )
     st.markdown(
@@ -58,9 +65,19 @@ question = st.text_input("Ask a question about the Basel III credit-risk framewo
 
 if st.button("Ask", type="primary") and question.strip():
     with st.spinner("Retrieving regulatory passages and generating an answer..."):
-        rewritten = rewrite_query(question) if use_rewrite else None
-        result = answer(rewritten or question, search_mode=search_mode)
-        conversation_id = save_conversation(question, result)
+        rewrite = None
+        if use_rewrite:
+            start = time.perf_counter()
+            rewritten, usage = rewrite_query_with_usage(question)
+            rewrite = {
+                "query": rewritten,
+                "tokens": usage.total_tokens,
+                "cost": (usage.input_tokens * PRICE_PER_M_INPUT
+                         + usage.output_tokens * PRICE_PER_M_OUTPUT) / 1_000_000,
+                "time": time.perf_counter() - start,
+            }
+        result = answer(rewrite["query"] if rewrite else question, search_mode=search_mode)
+        conversation_id = save_conversation(question, result, rewrite=rewrite)
         try:
             relevance, explanation = evaluate_relevance(question, result["answer"])
             save_feedback(conversation_id, "judge",
@@ -70,7 +87,7 @@ if st.button("Ask", type="primary") and question.strip():
     st.session_state.last = {
         "conversation_id": conversation_id,
         "question": question,
-        "rewritten": rewritten,
+        "rewrite": rewrite,
         "result": result,
         "relevance": relevance,
         "explanation": explanation,
@@ -81,8 +98,10 @@ last = st.session_state.get("last")
 if last:
     result = last["result"]
     st.markdown(f"**Q:** {last['question']}")
-    if last.get("rewritten"):
-        st.caption(f"Query rewritten to: {last['rewritten']}")
+    if last.get("rewrite"):
+        rw = last["rewrite"]
+        st.caption(f"Query rewritten to: {rw['query']} "
+                   f"(+{rw['time']:.1f}s, {rw['tokens']} tokens, ${rw['cost']:.4f})")
     st.markdown(result["answer"])
 
     if result["sources"]:
