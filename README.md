@@ -1,5 +1,7 @@
 # Credit Risk Advisor
 
+[![CI](https://github.com/KuenaMahase/credit-risk-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/KuenaMahase/credit-risk-advisor/actions/workflows/ci.yml)
+
 A conversational assistant that helps credit-risk analysts get grounded
 answers from banking regulation. It retrieves relevant passages from the
 Basel III credit-risk framework and answers using only that context, with
@@ -249,6 +251,9 @@ query rewriting, and the online judge.
 - Custom models must also provide `LLM_PRICE_PER_M_INPUT` and
   `LLM_PRICE_PER_M_OUTPUT` in USD per one million tokens. This prevents the
   dashboard from silently applying the wrong model price.
+
+The default price map follows the official
+[gpt-4o-mini model pricing](https://developers.openai.com/api/docs/models/gpt-4o-mini).
 
 Secrets are excluded from both Git and the Docker build context.
 
