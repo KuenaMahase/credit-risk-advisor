@@ -51,16 +51,24 @@ real compliance decisions.
 
 ## Architecture
 
-```text
-sources.yaml -> ingestion (dlt) -> DuckDB KB + chunks.jsonl
-                                        |
-                 query -> retrieval (keyword | vector | hybrid | rerank)
-                                        |
-                          grounded prompt -> LLM -> cited answer
+```mermaid
+flowchart LR
+    S[sources.yaml] --> I[ingestion<br/>dlt pipeline]
+    I --> KB[(DuckDB KB<br/>+ chunks.jsonl)]
+    Q[user question] --> R{retrieval<br/>keyword · vector<br/>hybrid · rerank}
+    KB --> R
+    R --> P[grounded prompt] --> L[LLM<br/>gpt-4o-mini]
+    L --> A[cited answer]
+    A --> UI[Streamlit app]
+    UI -->|conversation| DB[(SQLite<br/>conversations<br/>+ feedback)]
+    UI -.->|👍 / 👎| DB
+    L -.->|online judge| DB
+    DB --> D[monitoring<br/>dashboard]
 ```
 
-The Streamlit UI logs conversations and feedback to SQLite, and the monitoring
-dashboard reads that shared store.
+The retrieval layer offers four modes; evaluation picks the winner (`rerank`)
+as the default. The Streamlit app logs every conversation and both feedback
+signals to SQLite, and the monitoring dashboard reads that shared store.
 
 ## Quickstart
 
@@ -200,5 +208,37 @@ table.
 
 ## Self-evaluation against the rubric
 
-The final self-evaluation table will map every claimed point to evidence in the
-submitted commit.
+Self-assessment against the [LLM Zoomcamp project
+rubric](https://github.com/DataTalksClub/llm-zoomcamp/blob/main/project.md),
+with the evidence for each point.
+
+| Criterion | Self-assessed | Evidence |
+|---|---|---|
+| Problem description | 2 / 2 | [Problem](#problem) — who needs it and why grounding matters |
+| Retrieval flow | 2 / 2 | knowledge base **and** LLM in the flow: [`rag/search.py`](rag/search.py), [`rag/llm.py`](rag/llm.py) |
+| Retrieval evaluation | 2 / 2 | four modes compared, best (`rerank`) wired as default: [Retrieval](#retrieval), [`eval/evaluate_retrieval.py`](eval/evaluate_retrieval.py) |
+| LLM evaluation | 2 / 2 | two prompts judged, best (`quote_first`) wired as production: [LLM answers](#llm-answers), [`eval/evaluate_llm.py`](eval/evaluate_llm.py) |
+| Interface | 2 / 2 | Streamlit UI: [`app/app.py`](app/app.py) |
+| Ingestion pipeline | 2 / 2 | automated with **dlt** (a "special tool" per the rubric): [`ingestion/dlt_pipeline.py`](ingestion/dlt_pipeline.py) |
+| Monitoring | 2 / 2 | user feedback **and** an online judge feeding a 6-chart dashboard: [Monitoring](#monitoring), [`monitoring/`](monitoring/) |
+| Containerization | 2 / 2 | everything in docker-compose (app + dashboard, shared volume): [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) |
+| Reproducibility | 2 / 2 | clear instructions, dataset fetched at build time, verified by a clean `git clone` → `docker compose up` — see [Reproducibility check](#reproducibility-check) |
+| Best practices | 3 / 3 | hybrid search + cross-encoder reranking + query rewriting, **each evaluated**: [Retrieval](#retrieval), [Query rewriting](#query-rewriting) |
+
+**Core: 18 / 18. Best practices: 3 / 3.**
+
+Bonus not yet attempted: cloud deployment (0 / 2) and exceptional contribution
+(an optional risk-weight-calculator agent). See [Deployment notes](#deployment-notes).
+
+### Reproducibility check
+
+*(fresh `git clone` → `docker compose up --build` walkthrough and result to be
+recorded here.)*
+
+### Deployment notes
+
+Streamlit Community Cloud does not run the Docker image and `chunks.jsonl` is
+gitignored, so a Community Cloud deploy would need a startup bootstrap (run the
+dlt pipeline on first boot) rather than Compose, and SQLite persistence there is
+not guaranteed. A Docker-capable host (Render / Railway / Fly) runs the Compose
+stack as-is. This is bonus work and is deferred until the core project is final.
