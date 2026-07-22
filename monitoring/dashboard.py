@@ -46,11 +46,21 @@ conversations["timestamp"] = pd.to_datetime(conversations["timestamp"])
 user_fb = feedback[feedback["source"] == "user"]
 judge_fb = feedback[feedback["source"] == "judge"]
 
+# All-in cost per conversation = answer + optional rewrite + online judge.
+# (rewrite_cost / judge_cost columns exist on any DB via the migration in db.py,
+# but guard with .get for older frames.)
+conversations["all_in_cost"] = (
+    conversations["cost"]
+    + conversations.get("rewrite_cost", 0)
+    + conversations.get("judge_cost", 0)
+)
+
 # Headline tiles
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Conversations", len(conversations))
 col2.metric("Avg response time", f"{conversations['response_time'].mean():.1f}s")
-col3.metric("Total LLM cost", f"${conversations['cost'].sum():.4f}")
+col3.metric("Total LLM cost", f"${conversations['all_in_cost'].sum():.4f}",
+            help="Answer generation + query rewriting + online judge.")
 col4.metric("Avg tokens / answer", f"{conversations['total_tokens'].mean():.0f}")
 thumbs_up_rate = (user_fb["score"] == 1).mean() if len(user_fb) else None
 col5.metric("👍 rate", f"{100 * thumbs_up_rate:.0f}%" if thumbs_up_rate is not None else "—")
@@ -114,7 +124,7 @@ with right:
 
     st.subheader("Cumulative LLM cost")
     cost = conversations.sort_values("timestamp").copy()
-    cost["cumulative_cost"] = cost["cost"].cumsum()
+    cost["cumulative_cost"] = cost["all_in_cost"].cumsum()
     fig = px.line(cost, x="timestamp", y="cumulative_cost", markers=True)
     fig.update_traces(line_color=SERIES_BLUE, marker_color=SERIES_BLUE)
     fig.update_layout(margin=dict(t=10, b=10), xaxis_title=None, yaxis_title="USD")

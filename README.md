@@ -5,7 +5,21 @@ answers from banking regulation. It retrieves relevant passages from the
 Basel III credit-risk framework and answers using only that context, with
 source and page citations for every claim.
 
-> **Status:** work in progress (LLM Zoomcamp 2026 capstone).
+> **Status:** LLM Zoomcamp 2026 capstone — core complete; cloud deployment
+> (bonus) in progress.
+
+---
+
+## Demo
+
+A grounded answer with per-claim citations and the retrieved source passages:
+
+![The assistant answering a question with citations and an expandable panel of the retrieved Basel III passages](docs/screenshots/app-answer.png)
+
+The monitoring dashboard — feedback split, online-judge relevance, latency, and
+all-in LLM cost across every logged conversation:
+
+![Monitoring dashboard with headline metrics and six charts](docs/screenshots/dashboard.png)
 
 ---
 
@@ -180,6 +194,13 @@ pass `--refresh` to regenerate them from the model). When the toggle is used in
 the app, the rewritten query and its tokens/latency/cost are logged to the
 monitoring store and shown in the dashboard's recent-conversations table.
 
+The toggle in action — shorthand *"RW for unrated corps?"* is expanded into
+framework wording (with the rewrite's own cost shown), and here the reranked
+passages don't pin the exact figure, so the assistant refuses rather than
+guessing — the same effect the numbers above measure:
+
+![The app with the rewrite toggle on, showing the expanded query and a grounded refusal](docs/screenshots/app-rewrite.png)
+
 ## Monitoring
 
 Every question answered in the app is logged to a SQLite store
@@ -213,7 +234,7 @@ rubric](https://github.com/DataTalksClub/llm-zoomcamp/blob/main/project.md),
 with the evidence for each point.
 
 | Criterion | Self-assessed | Evidence |
-|---|---|---|
+| --- | --- | --- |
 | Problem description | 2 / 2 | [Problem](#problem) — who needs it and why grounding matters |
 | Retrieval flow | 2 / 2 | knowledge base **and** LLM in the flow: [`rag/search.py`](rag/search.py), [`rag/llm.py`](rag/llm.py) |
 | Retrieval evaluation | 2 / 2 | four modes compared, best (`rerank`) wired as default: [Retrieval](#retrieval), [`eval/evaluate_retrieval.py`](eval/evaluate_retrieval.py) |

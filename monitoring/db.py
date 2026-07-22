@@ -36,12 +36,15 @@ def get_connection() -> sqlite3.Connection:
 
 # Columns added after the first schema shipped. Kept as a migration so an
 # existing advisor.db (e.g. a reviewer's) gains them without being recreated.
-# rewritten_query is NULL unless the query-rewriting toggle was used.
+# rewritten_query is NULL unless the query-rewriting toggle was used;
+# judge_* hold the online judge's own token/cost usage for that conversation.
 _ADDED_COLUMNS = {
     "rewritten_query": "TEXT",
     "rewrite_tokens": "INTEGER NOT NULL DEFAULT 0",
     "rewrite_cost": "REAL NOT NULL DEFAULT 0",
     "rewrite_time": "REAL NOT NULL DEFAULT 0",
+    "judge_tokens": "INTEGER NOT NULL DEFAULT 0",
+    "judge_cost": "REAL NOT NULL DEFAULT 0",
 }
 
 
@@ -65,7 +68,9 @@ def init_db() -> None:
                 rewritten_query TEXT,
                 rewrite_tokens INTEGER NOT NULL DEFAULT 0,
                 rewrite_cost REAL NOT NULL DEFAULT 0,
-                rewrite_time REAL NOT NULL DEFAULT 0
+                rewrite_time REAL NOT NULL DEFAULT 0,
+                judge_tokens INTEGER NOT NULL DEFAULT 0,
+                judge_cost REAL NOT NULL DEFAULT 0
             )
         """)
         existing = {row[1] for row in conn.execute("PRAGMA table_info(conversations)")}
@@ -133,6 +138,24 @@ def save_conversation(question: str, result: dict, rewrite: dict | None = None) 
         )
         conn.commit()
         return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def update_conversation_judge(conversation_id: int, tokens: int, cost: float) -> None:
+    """Record the online judge's token/cost usage on a conversation.
+
+    The judge runs after the conversation is inserted, so its cost is folded in
+    with this update — keeping every LLM cost for a question (answer + rewrite +
+    judge) on the one row the dashboard totals.
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE conversations SET judge_tokens = ?, judge_cost = ? WHERE id = ?",
+            (tokens, cost, conversation_id),
+        )
+        conn.commit()
     finally:
         conn.close()
 

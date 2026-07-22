@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from rag.llm import LLM_MODEL, get_client
+from rag.llm import LLM_MODEL, PRICE_PER_M_INPUT, PRICE_PER_M_OUTPUT, get_client
 
 
 class RelevanceVerdict(BaseModel):
@@ -40,8 +40,13 @@ JUDGE_PROMPT = """Question: {question}
 Generated Answer: {answer}""".strip()
 
 
-def evaluate_relevance(question: str, answer: str, max_retries: int = 3) -> tuple[str, str]:
-    """Return (relevance, explanation) for a live question/answer pair."""
+def evaluate_relevance(question: str, answer: str, max_retries: int = 3) -> tuple[str, str, int, float]:
+    """Judge a live question/answer pair.
+
+    Returns (relevance, explanation, tokens, cost) — tokens and cost are the
+    judge LLM call's own usage, so the app can fold them into the conversation's
+    total cost (the judge runs once per answered question).
+    """
     prompt = JUDGE_PROMPT.format(question=question, answer=answer)
     for attempt in range(max_retries):
         try:
@@ -54,7 +59,10 @@ def evaluate_relevance(question: str, answer: str, max_retries: int = 3) -> tupl
                 text_format=RelevanceVerdict,
             )
             verdict = response.output_parsed
-            return verdict.relevance, verdict.explanation
+            usage = response.usage
+            cost = (usage.input_tokens * PRICE_PER_M_INPUT
+                    + usage.output_tokens * PRICE_PER_M_OUTPUT) / 1_000_000
+            return verdict.relevance, verdict.explanation, usage.total_tokens, cost
         except Exception:  # noqa: BLE001
             if attempt == max_retries - 1:
                 raise

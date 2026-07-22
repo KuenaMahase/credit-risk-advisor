@@ -1,0 +1,6 @@
+{
+  // Line length: disabled. The README uses one-sentence-per-line prose and
+  // image lines with descriptive alt text, both of which exceed 80 columns by
+  // design and render fine on GitHub.
+  "MD013": false
+}

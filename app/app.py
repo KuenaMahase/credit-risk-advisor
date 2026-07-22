@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
-from monitoring.db import save_conversation, save_feedback
+from monitoring.db import save_conversation, save_feedback, update_conversation_judge
 from monitoring.judge import evaluate_relevance
 from rag.llm import (
     DEFAULT_SEARCH_MODE,
@@ -79,9 +79,11 @@ if st.button("Ask", type="primary") and question.strip():
         result = answer(rewrite["query"] if rewrite else question, search_mode=search_mode)
         conversation_id = save_conversation(question, result, rewrite=rewrite)
         try:
-            relevance, explanation = evaluate_relevance(question, result["answer"])
+            relevance, explanation, judge_tokens, judge_cost = evaluate_relevance(
+                question, result["answer"])
             save_feedback(conversation_id, "judge",
                           relevance=relevance, explanation=explanation)
+            update_conversation_judge(conversation_id, judge_tokens, judge_cost)
         except Exception:  # noqa: BLE001 - judging must never break the app
             relevance, explanation = None, None
     st.session_state.last = {
