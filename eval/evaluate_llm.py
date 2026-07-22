@@ -125,6 +125,7 @@ def judge_answer(question: str, source_text: str, answer: str,
                     {"role": "user", "content": prompt},
                 ],
                 text_format=AnswerEvaluation,
+                store=False,
             )
             evaluation = response.output_parsed
             if evaluation is None:

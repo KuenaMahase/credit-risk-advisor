@@ -32,6 +32,17 @@ from rag.llm import (
 from rag.search import SEARCH_MODES
 from rag.types import AnswerResult, RewriteMetrics
 
+BIS_PUBLICATION_URL = "https://www.bis.org/bcbs/publ/d424.htm"
+BIS_TERMS_URL = "https://www.bis.org/terms_conditions.htm"
+SOURCE_EXCERPT_WORDS = 50
+
+
+def source_excerpt(text: str, max_words: int = SOURCE_EXCERPT_WORDS) -> str:
+    """Return a bounded source preview without cutting through a word."""
+    words = text.split()
+    excerpt = " ".join(words[:max_words])
+    return excerpt + ("..." if len(words) > max_words else "")
+
 
 class LastInteraction(TypedDict):
     """Typed Streamlit session payload for the most recent answer."""
@@ -60,6 +71,11 @@ def render_app(set_page_config: bool = True) -> None:
         "Grounded answers from the Basel III standardised approach for credit risk. "
         "Educational demo — not legal, regulatory, or compliance advice."
     )
+    st.info(
+        "Do not enter personal, customer, or confidential information. Questions "
+        "and retrieved excerpts are sent to the OpenAI API, and conversations may "
+        "be recorded in this app's monitoring database."
+    )
 
     with st.sidebar:
         st.header("Settings")
@@ -83,6 +99,14 @@ def render_app(set_page_config: bool = True) -> None:
             "- What is the risk weight for an unrated corporate exposure?\n"
             "- What collateral is eligible for credit risk mitigation?\n"
             "- How are exposures to SMEs treated?"
+        )
+        st.markdown(
+            f"Source: [Basel III: Finalising post-crisis reforms]({BIS_PUBLICATION_URL})  \n"
+            f"[BIS terms of use]({BIS_TERMS_URL})"
+        )
+        st.caption(
+            "Non-commercial educational project. Not affiliated with or endorsed by "
+            "the BIS or the Basel Committee on Banking Supervision."
         )
 
     question = st.text_input("Ask a question about the Basel III credit-risk framework:")
@@ -160,11 +184,10 @@ def render_app(set_page_config: bool = True) -> None:
             with st.expander(f"Sources ({len(result['sources'])} passages retrieved)"):
                 for c in result["sources"]:
                     st.markdown(
-                        f"**{c['source_title']}, p.{c['page']}** (`{c['chunk_id']}`)"
+                        f"**[{c['source_title']}]({BIS_PUBLICATION_URL}), "
+                        f"p.{c['page']}** (`{c['chunk_id']}`)"
                     )
-                    st.caption(
-                        c["text"][:400] + ("..." if len(c["text"]) > 400 else "")
-                    )
+                    st.caption(source_excerpt(c["text"]))
 
         meta = (
             f"mode: {result['search_mode']} · {result['response_time']:.1f}s end to end · "

@@ -5,10 +5,16 @@
 
 sources:
   - id: basel_credit_risk_standardised
-    title: "Basel III — Standardised Approach for Credit Risk"
+    title: "Basel III: Finalising post-crisis reforms"
+    publisher: "Basel Committee on Banking Supervision"
+    host: "Bank for International Settlements"
+    publication_date: "2017-12-07"
+    landing_page: "https://www.bis.org/bcbs/publ/d424.htm"
     url: "https://www.bis.org/bcbs/publ/d424.pdf"
+    terms_url: "https://www.bis.org/terms_conditions.htm"
+    copyright_holder: "Bank for International Settlements"
     category: credit_risk
-    description: "Basel III finalising post-crisis reforms — credit risk framework."
+    description: "December 2017 Basel III reforms, including the standardised approach for credit risk."
 
 # NOTE: URLs point to public regulator sites. If a URL changes (regulators
 # occasionally reorganise their sites), update it here. The pipeline validates

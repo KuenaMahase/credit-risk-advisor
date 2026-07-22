@@ -73,6 +73,7 @@ def generate_for_chunk(client: OpenAI, chunk: dict, max_retries: int = 3) -> lis
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=Questions,
+                store=False,
             )
             parsed = response.output_parsed
             if parsed is None:

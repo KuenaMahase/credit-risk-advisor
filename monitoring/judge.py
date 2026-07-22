@@ -57,6 +57,7 @@ def evaluate_relevance(question: str, answer: str, max_retries: int = 3) -> tupl
                     {"role": "user", "content": prompt},
                 ],
                 text_format=RelevanceVerdict,
+                store=False,
             )
             verdict = response.output_parsed
             usage = response.usage

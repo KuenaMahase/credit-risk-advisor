@@ -99,6 +99,8 @@ _COMMON_RULES = """Rules:
   plainly instead of guessing.
 - Cite the source and page for each claim, using the format
   [source_title, p.page] matching the CONTEXT entries.
+- Keep direct quotations brief and below 100 words in total.
+- Do not imply affiliation with or endorsement by the source publisher.
 - This is an educational tool, not legal or compliance advice; do not phrase
   the answer as a directive to take a specific action."""
 
@@ -147,6 +149,7 @@ def rewrite_query_with_usage(question: str) -> tuple[str, ResponseUsage]:
             {"role": "user", "content": question},
         ],
         temperature=0.0,
+        store=False,
     )
     usage = response.usage
     if usage is None:
@@ -184,6 +187,7 @@ def llm_with_usage(
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.0,
+        store=False,
     )
     usage = response.usage
     if usage is None:

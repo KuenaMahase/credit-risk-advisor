@@ -4,6 +4,8 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
+from app.app import source_excerpt
+
 
 ROOT = Path(__file__).resolve().parent.parent
 CHUNKS_FILE = ROOT / "data" / "processed" / "chunks.jsonl"
@@ -37,6 +39,12 @@ class StreamlitEntrypointTests(unittest.TestCase):
         self.assertEqual(list(app.exception), [])
         self.assertEqual(app.title[0].value, "Credit Risk Advisor")
         self.assertEqual(len(app.text_input), 1)
+
+    def test_source_excerpt_enforces_word_limit(self):
+        excerpt = source_excerpt(" ".join(f"word{i}" for i in range(75)))
+
+        self.assertTrue(excerpt.endswith("..."))
+        self.assertEqual(len(excerpt.removesuffix("...").split()), 50)
 
 
 if __name__ == "__main__":
