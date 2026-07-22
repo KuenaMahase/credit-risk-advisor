@@ -58,7 +58,11 @@ conversations["all_in_cost"] = (
 # Headline tiles
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Conversations", len(conversations))
-col2.metric("Avg response time", f"{conversations['response_time'].mean():.1f}s")
+col2.metric(
+    "Avg end-to-end time",
+    f"{conversations['response_time'].mean():.1f}s",
+    help="Optional rewrite + retrieval/answer generation + online judge.",
+)
 col3.metric("Total LLM cost", f"${conversations['all_in_cost'].sum():.4f}",
             help="Answer generation + query rewriting + online judge.")
 col4.metric("Avg tokens / answer", f"{conversations['total_tokens'].mean():.0f}")
@@ -116,7 +120,7 @@ with right:
                           yaxis_title="votes", showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Response time")
+    st.subheader("End-to-end response time")
     fig = px.line(conversations, x="timestamp", y="response_time", markers=True)
     fig.update_traces(line_color=SERIES_BLUE, marker_color=SERIES_BLUE)
     fig.update_layout(margin=dict(t=10, b=10), xaxis_title=None, yaxis_title="seconds")
@@ -132,7 +136,14 @@ with right:
 
 st.subheader("Recent conversations")
 recent = conversations.sort_values("timestamp", ascending=False).head(20)
-recent_cols = ["timestamp", "question", "search_mode", "total_tokens", "response_time", "cost"]
+recent_cols = [
+    "timestamp",
+    "question",
+    "search_mode",
+    "total_tokens",
+    "response_time",
+    "all_in_cost",
+]
 # rewritten_query is only present once the rewrite toggle has been used; show it
 # when it carries data so reviewers can audit rewrite runs.
 if "rewritten_query" in recent.columns and recent["rewritten_query"].notna().any():

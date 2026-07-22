@@ -43,8 +43,10 @@ _ADDED_COLUMNS = {
     "rewrite_tokens": "INTEGER NOT NULL DEFAULT 0",
     "rewrite_cost": "REAL NOT NULL DEFAULT 0",
     "rewrite_time": "REAL NOT NULL DEFAULT 0",
+    "answer_time": "REAL NOT NULL DEFAULT 0",
     "judge_tokens": "INTEGER NOT NULL DEFAULT 0",
     "judge_cost": "REAL NOT NULL DEFAULT 0",
+    "judge_time": "REAL NOT NULL DEFAULT 0",
 }
 
 
@@ -69,8 +71,10 @@ def init_db() -> None:
                 rewrite_tokens INTEGER NOT NULL DEFAULT 0,
                 rewrite_cost REAL NOT NULL DEFAULT 0,
                 rewrite_time REAL NOT NULL DEFAULT 0,
+                answer_time REAL NOT NULL DEFAULT 0,
                 judge_tokens INTEGER NOT NULL DEFAULT 0,
-                judge_cost REAL NOT NULL DEFAULT 0
+                judge_cost REAL NOT NULL DEFAULT 0,
+                judge_time REAL NOT NULL DEFAULT 0
             )
         """)
         existing = {row[1] for row in conn.execute("PRAGMA table_info(conversations)")}
@@ -116,8 +120,9 @@ def save_conversation(question: str, result: dict, rewrite: dict | None = None) 
                 timestamp, question, answer, search_mode, model,
                 prompt_tokens, completion_tokens, total_tokens,
                 response_time, cost,
-                rewritten_query, rewrite_tokens, rewrite_cost, rewrite_time
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                rewritten_query, rewrite_tokens, rewrite_cost, rewrite_time,
+                answer_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 _now(),
@@ -134,6 +139,7 @@ def save_conversation(question: str, result: dict, rewrite: dict | None = None) 
                 rewrite.get("tokens", 0),
                 rewrite.get("cost", 0.0),
                 rewrite.get("time", 0.0),
+                result["response_time"],
             ),
         )
         conn.commit()
@@ -142,18 +148,27 @@ def save_conversation(question: str, result: dict, rewrite: dict | None = None) 
         conn.close()
 
 
-def update_conversation_judge(conversation_id: int, tokens: int, cost: float) -> None:
-    """Record the online judge's token/cost usage on a conversation.
+def update_conversation_judge(
+    conversation_id: int,
+    tokens: int,
+    cost: float,
+    *,
+    judge_time: float,
+    response_time: float,
+) -> None:
+    """Finish a conversation with judge metrics and end-to-end latency.
 
     The judge runs after the conversation is inserted, so its cost is folded in
-    with this update — keeping every LLM cost for a question (answer + rewrite +
-    judge) on the one row the dashboard totals.
+    with this update. The response time covers the complete synchronous user
+    wait: optional rewrite, retrieval/answer generation, logging, and judging.
     """
     conn = get_connection()
     try:
         conn.execute(
-            "UPDATE conversations SET judge_tokens = ?, judge_cost = ? WHERE id = ?",
-            (tokens, cost, conversation_id),
+            """UPDATE conversations
+               SET judge_tokens = ?, judge_cost = ?, judge_time = ?, response_time = ?
+               WHERE id = ?""",
+            (tokens, cost, judge_time, response_time, conversation_id),
         )
         conn.commit()
     finally:

@@ -31,6 +31,43 @@ load_dotenv(ROOT / ".env")
 
 LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
 
+# Standard text-token prices in USD per 1M tokens. Custom models can be used by
+# setting both LLM_PRICE_PER_M_INPUT and LLM_PRICE_PER_M_OUTPUT in the
+# environment; requiring an explicit pair prevents silently incorrect costs.
+MODEL_PRICING = {
+    "gpt-4o-mini": (0.15, 0.60),
+}
+
+
+def get_model_pricing(model: str = LLM_MODEL) -> tuple[float, float]:
+    input_override = os.environ.get("LLM_PRICE_PER_M_INPUT")
+    output_override = os.environ.get("LLM_PRICE_PER_M_OUTPUT")
+    if bool(input_override) != bool(output_override):
+        raise ValueError(
+            "Set both LLM_PRICE_PER_M_INPUT and LLM_PRICE_PER_M_OUTPUT, or neither."
+        )
+    if input_override and output_override:
+        return float(input_override), float(output_override)
+    try:
+        return MODEL_PRICING[model]
+    except KeyError as exc:
+        raise ValueError(
+            f"No pricing configured for {model!r}. Set LLM_PRICE_PER_M_INPUT "
+            "and LLM_PRICE_PER_M_OUTPUT."
+        ) from exc
+
+
+PRICE_PER_M_INPUT, PRICE_PER_M_OUTPUT = get_model_pricing()
+
+
+def calculate_cost(usage, model: str = LLM_MODEL) -> float:
+    """Return the standard API token cost for a response usage object."""
+    input_price, output_price = get_model_pricing(model)
+    return (
+        usage.input_tokens * input_price + usage.output_tokens * output_price
+    ) / 1_000_000
+
+
 # rerank won the retrieval evaluation (python -m eval.evaluate_retrieval):
 # hit rate 0.911 / MRR 0.768 vs 0.816/0.595 for the next-best mode (hybrid),
 # at ~184ms — acceptable for an interactive assistant. See README Evaluation.
@@ -123,11 +160,6 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
     return USER_PROMPT_TEMPLATE.format(question=question, context=build_context(chunks))
 
 
-# gpt-4o-mini pricing per 1M tokens, used for the monitoring cost column.
-PRICE_PER_M_INPUT = 0.15
-PRICE_PER_M_OUTPUT = 0.60
-
-
 def llm_with_usage(user_prompt: str, instructions: str = INSTRUCTIONS):
     """Call the LLM and return (answer_text, usage) for metrics logging."""
     response = get_client().responses.create(
@@ -174,8 +206,7 @@ def answer(
         }
     prompt = build_prompt(question, chunks)
     generated, usage = llm_with_usage(prompt)
-    cost = (usage.input_tokens * PRICE_PER_M_INPUT
-            + usage.output_tokens * PRICE_PER_M_OUTPUT) / 1_000_000
+    cost = calculate_cost(usage)
     return {
         "answer": generated,
         "sources": chunks,

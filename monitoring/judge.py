@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from rag.llm import LLM_MODEL, PRICE_PER_M_INPUT, PRICE_PER_M_OUTPUT, get_client
+from rag.llm import LLM_MODEL, calculate_cost, get_client
 
 
 class RelevanceVerdict(BaseModel):
@@ -60,8 +60,7 @@ def evaluate_relevance(question: str, answer: str, max_retries: int = 3) -> tupl
             )
             verdict = response.output_parsed
             usage = response.usage
-            cost = (usage.input_tokens * PRICE_PER_M_INPUT
-                    + usage.output_tokens * PRICE_PER_M_OUTPUT) / 1_000_000
+            cost = calculate_cost(usage)
             return verdict.relevance, verdict.explanation, usage.total_tokens, cost
         except Exception:  # noqa: BLE001
             if attempt == max_retries - 1:

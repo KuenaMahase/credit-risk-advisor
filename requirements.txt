@@ -7,8 +7,14 @@ pypdf==5.1.0
 minsearch==0.0.4
 sentence-transformers==3.3.1
 numpy==1.26.4
+# Linux hosts (Docker and Streamlit Cloud) use the CPU wheel explicitly;
+# macOS installs its native wheel from PyPI.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.8.0; sys_platform == "linux"
+torch==2.8.0; sys_platform == "darwin"
+torch==2.8.0; sys_platform == "win32"
 
-# LLM client (works with OpenAI, Groq, Ollama via base_url)
+# OpenAI Responses API client
 # >=1.66 needed for the Responses API (client.responses.*)
 openai==2.46.0
 python-dotenv==1.0.1

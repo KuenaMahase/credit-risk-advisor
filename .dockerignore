@@ -6,6 +6,7 @@
 venv/
 .git/
 .claude/
+.playwright-cli/
 __pycache__/
 *.pyc
 

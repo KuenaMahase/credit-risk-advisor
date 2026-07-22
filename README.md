@@ -5,8 +5,8 @@ answers from banking regulation. It retrieves relevant passages from the
 Basel III credit-risk framework and answers using only that context, with
 source and page citations for every claim.
 
-> **Status:** LLM Zoomcamp 2026 capstone — core complete; cloud deployment
-> (bonus) in progress.
+> **Status:** LLM Zoomcamp 2026 capstone — core application and reproducibility
+> checks complete; public cloud deployment is the remaining bonus step.
 
 ---
 
@@ -86,6 +86,9 @@ signals to SQLite, and the monitoring dashboard reads that shared store.
 
 ## Quickstart
 
+Prerequisites: Docker Desktop for the recommended path, or Python 3.12 for the
+local path, plus an OpenAI API key.
+
 ### Docker (recommended)
 
 ```bash
@@ -100,15 +103,15 @@ docker compose up --build
 Everything runs in compose: the assistant and the monitoring dashboard share
 one image and one SQLite volume. The image build downloads the source PDF,
 builds the knowledge base with the dlt pipeline, and bakes the embedding +
-reranking models in — so `up` needs no other host-side steps. Expect the first
-build to take about 6 minutes (CPU-only PyTorch is preinstalled to avoid the
-multi-GB CUDA wheels); rebuilds are cached. Both services expose health checks
-(`docker compose ps` shows `healthy`).
+reranking models in — so `up` needs no other host-side steps. The first build
+downloads the CPU-only ML stack and model weights; allow roughly 6–30 minutes
+depending on network speed. Rebuilds reuse Docker's cache. Both services expose
+health checks (`docker compose ps` shows `healthy`).
 
 ### Local (venv)
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env              # add your OpenAI API key
 python ingestion/dlt_pipeline.py  # dlt pipeline: downloads sources, loads the
@@ -121,6 +124,21 @@ python -m rag.llm "What is the risk weight for a corporate exposure with no exte
 streamlit run app/app.py               # the assistant UI (with feedback buttons)
 streamlit run monitoring/dashboard.py  # monitoring dashboard (6 charts + table)
 ```
+
+## Testing
+
+The regression suite uses only local fixtures and mocks — it never makes a paid
+OpenAI call or downloads a model:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The nine tests cover cloud cold-start behavior, the Streamlit entrypoint,
+database creation and metric breakdowns, model-aware cost calculation, citation
+context formatting, and reciprocal rank fusion. The same suite runs on Python
+3.12 for every push and pull request via
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Evaluation
 
@@ -205,7 +223,10 @@ guessing — the same effect the numbers above measure:
 
 Every question answered in the app is logged to a SQLite store
 (`monitoring/advisor.db`, gitignored) with the retrieval mode, token usage,
-cost, and response time. Each answer also gets two quality signals:
+all model costs, and end-to-end response time. The timing covers the optional
+rewrite, retrieval and answer generation, logging, and the synchronous judge;
+answer and judge timings are also retained separately. Each answer gets two
+quality signals:
 
 - **User feedback** — 👍/👎 buttons in the app (`feedback` table, source `user`).
 - **Online LLM judge** — every live answer is auto-classified as
@@ -213,10 +234,23 @@ cost, and response time. Each answer also gets two quality signals:
   (`monitoring/judge.py`, source `judge`) — no ground truth needed.
 
 `streamlit run monitoring/dashboard.py` shows headline metrics (conversations,
-avg response time, total cost, avg tokens, 👍 rate) and six charts: query
-volume, user feedback split, judge relevance distribution, response time,
-cumulative LLM cost, and retrieval-mode usage, plus a recent-conversations
-table.
+average end-to-end time, all-in cost, average answer tokens, 👍 rate) and six
+charts: query volume, user feedback split, judge relevance distribution,
+end-to-end response time, cumulative LLM cost, and retrieval-mode usage, plus a
+recent-conversations table. All-in cost includes answer generation, optional
+query rewriting, and the online judge.
+
+## Configuration
+
+`.env.example` documents the supported settings:
+
+- `OPENAI_API_KEY` is required for answer generation and judging.
+- `LLM_MODEL` defaults to `gpt-4o-mini`.
+- Custom models must also provide `LLM_PRICE_PER_M_INPUT` and
+  `LLM_PRICE_PER_M_OUTPUT` in USD per one million tokens. This prevents the
+  dashboard from silently applying the wrong model price.
+
+Secrets are excluded from both Git and the Docker build context.
 
 ## Limitations
 
@@ -226,6 +260,11 @@ table.
 - Answers are only as current as the ingested document versions.
 - Chunking is a fixed-size sliding window; a clause split across chunk
   boundaries relies on the 150-character overlap for retrieval.
+- The live relevance judge measures whether an answer addresses the question;
+  without ground truth, it cannot independently prove factual correctness.
+- SQLite is durable in the Docker volume, but a Streamlit Community Cloud
+  filesystem can be replaced when the app restarts, so hosted monitoring rows
+  are demonstration data rather than durable records.
 
 ## Self-evaluation against the rubric
 
@@ -249,12 +288,13 @@ with the evidence for each point.
 **Core: 18 / 18. Best practices: 3 / 3.**
 
 Bonus not yet attempted: cloud deployment (0 / 2) and exceptional contribution
-(an optional risk-weight-calculator agent). See [Deployment notes](#deployment-notes).
+(an optional risk-weight-calculator agent). See [Deployment](#deployment).
 
 ### Reproducibility check
 
-Verified on 2026-07-22 with a clean clone (commit `d5ff8c8`; this section is the
-only change since), following the documented Docker path exactly:
+Verified on 2026-07-22 from an artifact-free copy and with a complete Docker
+rebuild after the latest dependency changes, following the documented Docker
+path:
 
 ```bash
 git clone https://github.com/KuenaMahase/credit-risk-advisor.git
@@ -272,11 +312,21 @@ Result:
   dashboard on `:8502`.
 - A question answered inside the freshly built container returned a correct,
   cited answer (100% risk weight for unrated corporate exposures, p.17).
+- The nine-test suite passed inside the Python 3.12 image.
 
-### Deployment notes
+## Deployment
 
-Streamlit Community Cloud does not run the Docker image and `chunks.jsonl` is
-gitignored, so a Community Cloud deploy would need a startup bootstrap (run the
-dlt pipeline on first boot) rather than Compose, and SQLite persistence there is
-not guaranteed. A Docker-capable host (Render / Railway / Fly) runs the Compose
-stack as-is. This is bonus work and is deferred until the core project is final.
+The public deployment is not live yet. The repository is prepared for Streamlit
+Community Cloud through [`streamlit_app.py`](streamlit_app.py):
+
+1. Configure Python 3.12 and select `streamlit_app.py` as the entrypoint.
+2. Add `OPENAI_API_KEY` to the platform's Secrets.
+3. On the first boot, [`app/bootstrap.py`](app/bootstrap.py) downloads the
+   official PDF and creates `chunks.jsonl`; subsequent reruns reuse it.
+4. On the first question, the embedding and reranking models are loaded from
+   Hugging Face.
+
+The cloud bootstrap was verified from a copy containing no generated data: it
+downloaded the source, produced 707 chunks, and rendered the app without an
+exception. The Docker path remains the way to run both the app and persistent
+monitoring dashboard together.

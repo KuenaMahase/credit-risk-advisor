@@ -23,5 +23,8 @@ monitoring/*.db
 # OS
 .DS_Store
 
+# Local browser-verification artifacts
+.playwright-cli/
+
 # Claude Code local settings
 .claude/

@@ -20,6 +20,7 @@ services:
       ADVISOR_DB_PATH: /data/advisor.db
     volumes:
       - monitoring_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
@@ -33,13 +34,15 @@ services:
     command: ["streamlit", "run", "monitoring/dashboard.py",
               "--server.port=8502", "--server.address=0.0.0.0"]
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     ports:
       - "8502:8502"
     environment:
       ADVISOR_DB_PATH: /data/advisor.db
     volumes:
       - monitoring_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8502/_stcore/health')"]

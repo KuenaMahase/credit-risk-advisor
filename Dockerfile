@@ -6,7 +6,7 @@ COPY requirements.txt .
 # Install CPU-only torch first: on linux/arm64 the default PyPI torch pulls
 # multi-GB CUDA wheels that are useless in this CPU container. With torch
 # already satisfied, the requirements install skips that resolution entirely.
-RUN pip install --no-cache-dir "torch==2.13.0+cpu" --index-url https://download.pytorch.org/whl/cpu && \
+RUN pip install --no-cache-dir "torch==2.8.0" --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . .
