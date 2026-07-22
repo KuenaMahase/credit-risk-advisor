@@ -7,12 +7,14 @@ answers from banking regulation. It retrieves relevant passages from the
 Basel III credit-risk framework and answers using only that context, with
 source and page citations for every claim.
 
-> **Status:** LLM Zoomcamp 2026 capstone — core application and reproducibility
-> checks complete; public cloud deployment is the remaining bonus step.
+> **Status:** LLM Zoomcamp 2026 capstone — live, tested, and ready for peer
+> review.
 
 ---
 
 ## Demo
+
+**Live app:** [Launch Credit Risk Advisor](https://credit-risk-advisor-kuena.streamlit.app/)
 
 A grounded answer with per-claim citations and the retrieved source passages:
 
@@ -289,11 +291,11 @@ with the evidence for each point.
 | Containerization | 2 / 2 | everything in docker-compose (app + dashboard, shared volume): [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) |
 | Reproducibility | 2 / 2 | clear instructions, dataset fetched at build time, verified by a clean `git clone` → `docker compose up` — see [Reproducibility check](#reproducibility-check) |
 | Best practices | 3 / 3 | hybrid search + cross-encoder reranking + query rewriting, **each evaluated**: [Retrieval](#retrieval), [Query rewriting](#query-rewriting) |
+| Cloud deployment | 2 / 2 | [public Streamlit app](https://credit-risk-advisor-kuena.streamlit.app/), cold bootstrap and real cited answer verified |
 
-**Core: 18 / 18. Best practices: 3 / 3.**
+**Core: 18 / 18. Best practices: 3 / 3. Cloud bonus: 2 / 2.**
 
-Bonus not yet attempted: cloud deployment (0 / 2) and exceptional contribution
-(an optional risk-weight-calculator agent). See [Deployment](#deployment).
+Exceptional-contribution bonus is not self-claimed.
 
 ### Reproducibility check
 
@@ -321,17 +323,23 @@ Result:
 
 ## Deployment
 
-The public deployment is not live yet. The repository is prepared for Streamlit
-Community Cloud through [`streamlit_app.py`](streamlit_app.py):
+**Live assistant:**
+[credit-risk-advisor-kuena.streamlit.app](https://credit-risk-advisor-kuena.streamlit.app/)
 
-1. Configure Python 3.12 and select `streamlit_app.py` as the entrypoint.
-2. Add `OPENAI_API_KEY` to the platform's Secrets.
-3. On the first boot, [`app/bootstrap.py`](app/bootstrap.py) downloads the
-   official PDF and creates `chunks.jsonl`; subsequent reruns reuse it.
-4. On the first question, the embedding and reranking models are loaded from
-   Hugging Face.
+The app is deployed from `main` on Streamlit Community Cloud with Python 3.12
+and [`streamlit_app.py`](streamlit_app.py) as the entrypoint. The deployment was
+verified on 2026-07-22 from a clean cloud filesystem:
 
-The cloud bootstrap was verified from a copy containing no generated data: it
-downloaded the source, produced 707 chunks, and rendered the app without an
-exception. The Docker path remains the way to run both the app and persistent
-monitoring dashboard together.
+- [`app/bootstrap.py`](app/bootstrap.py) downloaded the official BIS PDF and
+  produced 707 chunks without any committed data artifacts.
+- A real `rerank` query returned the correct 100% risk weight for an unrated
+  corporate exposure, quoted the governing clause, cited page 17, and received
+  a `RELEVANT` verdict from the online judge.
+- The warmed hosted request completed in 6.5 seconds. The first request after a
+  new cloud filesystem is slower because it builds embeddings and downloads the
+  embedding and cross-encoder models.
+
+Streamlit Community Cloud hosts the assistant only. The documented Docker
+Compose path remains the way to run the assistant and persistent monitoring
+dashboard together; hosted SQLite rows may be reset when Streamlit replaces the
+app filesystem.
