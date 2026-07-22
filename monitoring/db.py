@@ -21,6 +21,8 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from rag.types import AnswerResult, RewriteMetrics
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # Overridable so docker-compose can point both services at a shared volume
@@ -38,7 +40,7 @@ def get_connection() -> sqlite3.Connection:
 # existing advisor.db (e.g. a reviewer's) gains them without being recreated.
 # rewritten_query is NULL unless the query-rewriting toggle was used;
 # judge_* hold the online judge's own token/cost usage for that conversation.
-_ADDED_COLUMNS = {
+_ADDED_COLUMNS: dict[str, str] = {
     "rewritten_query": "TEXT",
     "rewrite_tokens": "INTEGER NOT NULL DEFAULT 0",
     "rewrite_cost": "REAL NOT NULL DEFAULT 0",
@@ -101,7 +103,11 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def save_conversation(question: str, result: dict, rewrite: dict | None = None) -> int:
+def save_conversation(
+    question: str,
+    result: AnswerResult,
+    rewrite: RewriteMetrics | None = None,
+) -> int:
     """Log one answered question.
 
     `result` is the dict from rag.llm.answer(). `rewrite`, when the
@@ -111,7 +117,6 @@ def save_conversation(question: str, result: dict, rewrite: dict | None = None) 
     `question` always stores the original user question.
     """
     init_db()
-    rewrite = rewrite or {}
     conn = get_connection()
     try:
         cur = conn.execute(
@@ -135,15 +140,18 @@ def save_conversation(question: str, result: dict, rewrite: dict | None = None) 
                 result["total_tokens"],
                 result["response_time"],
                 result["cost"],
-                rewrite.get("query"),
-                rewrite.get("tokens", 0),
-                rewrite.get("cost", 0.0),
-                rewrite.get("time", 0.0),
+                rewrite["query"] if rewrite else None,
+                rewrite["tokens"] if rewrite else 0,
+                rewrite["cost"] if rewrite else 0.0,
+                rewrite["time"] if rewrite else 0.0,
                 result["response_time"],
             ),
         )
         conn.commit()
-        return cur.lastrowid
+        conversation_id = cur.lastrowid
+        if conversation_id is None:
+            raise RuntimeError("SQLite did not return a conversation ID")
+        return conversation_id
     finally:
         conn.close()
 

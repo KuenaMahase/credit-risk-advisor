@@ -12,6 +12,7 @@ retrieval-mode usage — with a recent-conversations table as data view.
 
 import sys
 from pathlib import Path
+from typing import cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -73,7 +74,11 @@ left, right = st.columns(2)
 
 with left:
     st.subheader("Query volume")
-    by_day = conversations.set_index("timestamp").resample("D").size().rename("questions").reset_index()
+    daily_counts = cast(
+        pd.Series,
+        conversations.set_index("timestamp").resample("D").size(),
+    )
+    by_day = daily_counts.to_frame(name="questions").reset_index()
     fig = px.bar(by_day, x="timestamp", y="questions")
     fig.update_traces(marker_color=SERIES_BLUE)
     fig.update_layout(margin=dict(t=10, b=10), xaxis_title=None, yaxis_title="questions / day")
@@ -84,7 +89,8 @@ with left:
         st.caption("No judge verdicts yet.")
     else:
         order = ["RELEVANT", "PARTLY_RELEVANT", "NON_RELEVANT"]
-        counts = judge_fb["relevance"].value_counts().reindex(order, fill_value=0).reset_index()
+        relevance = cast(pd.Series, judge_fb["relevance"])
+        counts = relevance.value_counts().reindex(order, fill_value=0).reset_index()
         counts.columns = ["relevance", "count"]
         fig = px.bar(counts, x="relevance", y="count", text="count",
                      color="relevance",
@@ -146,7 +152,11 @@ recent_cols = [
 ]
 # rewritten_query is only present once the rewrite toggle has been used; show it
 # when it carries data so reviewers can audit rewrite runs.
-if "rewritten_query" in recent.columns and recent["rewritten_query"].notna().any():
+has_rewritten_queries = False
+if "rewritten_query" in recent.columns:
+    rewritten_queries = cast(pd.Series, recent["rewritten_query"])
+    has_rewritten_queries = bool(rewritten_queries.notna().any())
+if has_rewritten_queries:
     recent_cols.insert(2, "rewritten_query")
 st.dataframe(
     recent[recent_cols],

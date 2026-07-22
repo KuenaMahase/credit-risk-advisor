@@ -24,6 +24,7 @@ Run as a manual smoke test:
 from __future__ import annotations
 
 import sys
+from typing import Protocol, cast
 
 from rag.index import (
     get_embedding_model,
@@ -31,6 +32,7 @@ from rag.index import (
     get_reranker,
     get_vector_index,
 )
+from rag.types import Chunk
 
 DEFAULT_NUM_RESULTS = 5
 # Tuned on eval/ground_truth.csv (python -m eval.evaluate_retrieval --tune):
@@ -38,39 +40,64 @@ DEFAULT_NUM_RESULTS = 5
 # pool size had little effect, so the 4x formula below is kept.
 RRF_K = 10
 
+FilterDict = dict[str, object]
+
+
+class SearchFunction(Protocol):
+    """Common callable contract used by the search-mode registry."""
+
+    def __call__(
+        self,
+        query: str,
+        num_results: int = DEFAULT_NUM_RESULTS,
+        filter_dict: FilterDict | None = None,
+    ) -> list[Chunk]: ...
+
 
 def keyword_search(
-    query: str, num_results: int = DEFAULT_NUM_RESULTS, filter_dict: dict | None = None
-) -> list[dict]:
-    return get_keyword_index().search(query, filter_dict=filter_dict, num_results=num_results)
+    query: str,
+    num_results: int = DEFAULT_NUM_RESULTS,
+    filter_dict: FilterDict | None = None,
+) -> list[Chunk]:
+    results = get_keyword_index().search(
+        query, filter_dict=filter_dict, num_results=num_results
+    )
+    return cast(list[Chunk], results)
 
 
 def vector_search(
-    query: str, num_results: int = DEFAULT_NUM_RESULTS, filter_dict: dict | None = None
-) -> list[dict]:
+    query: str,
+    num_results: int = DEFAULT_NUM_RESULTS,
+    filter_dict: FilterDict | None = None,
+) -> list[Chunk]:
     query_vec = get_embedding_model().encode(query, normalize_embeddings=True)
-    return get_vector_index().search(query_vec, filter_dict=filter_dict, num_results=num_results)
+    results = get_vector_index().search(
+        query_vec, filter_dict=filter_dict, num_results=num_results
+    )
+    return cast(list[Chunk], results)
 
 
-def _reciprocal_rank_fusion(ranked_lists: list[list[dict]], k: int = RRF_K) -> list[dict]:
+def _reciprocal_rank_fusion(
+    ranked_lists: list[list[Chunk]], k: int = RRF_K
+) -> list[Chunk]:
     scores: dict[str, float] = {}
-    doc_by_id: dict[str, dict] = {}
+    doc_by_id: dict[str, Chunk] = {}
     for ranked in ranked_lists:
         for rank, doc in enumerate(ranked, start=1):
             cid = doc["chunk_id"]
             doc_by_id[cid] = doc
             scores[cid] = scores.get(cid, 0.0) + 1.0 / (k + rank)
-    ordered_ids = sorted(scores, key=scores.get, reverse=True)
+    ordered_ids = sorted(scores, key=lambda chunk_id: scores[chunk_id], reverse=True)
     return [doc_by_id[cid] for cid in ordered_ids]
 
 
 def hybrid_search(
     query: str,
     num_results: int = DEFAULT_NUM_RESULTS,
-    filter_dict: dict | None = None,
+    filter_dict: FilterDict | None = None,
     rrf_k: int = RRF_K,
     num_candidates: int | None = None,
-) -> list[dict]:
+) -> list[Chunk]:
     if num_candidates is None:
         num_candidates = max(num_results * 4, 20)  # wider pool gives fusion overlap to work with
     kw_results = keyword_search(query, num_results=num_candidates, filter_dict=filter_dict)
@@ -80,8 +107,10 @@ def hybrid_search(
 
 
 def rerank_search(
-    query: str, num_results: int = DEFAULT_NUM_RESULTS, filter_dict: dict | None = None
-) -> list[dict]:
+    query: str,
+    num_results: int = DEFAULT_NUM_RESULTS,
+    filter_dict: FilterDict | None = None,
+) -> list[Chunk]:
     """Hybrid retrieval followed by cross-encoder reranking.
 
     The cross-encoder scores each (query, chunk_text) pair jointly — a
@@ -100,7 +129,7 @@ def rerank_search(
 
 # Registry the eval script (and later the app) can iterate over uniformly
 # without special-casing each mode.
-SEARCH_MODES = {
+SEARCH_MODES: dict[str, SearchFunction] = {
     "keyword": keyword_search,
     "vector": vector_search,
     "hybrid": hybrid_search,
@@ -114,7 +143,7 @@ DEMO_QUERIES = [
 ]
 
 
-def _print_results(mode: str, results: list[dict]) -> None:
+def _print_results(mode: str, results: list[Chunk]) -> None:
     print(f"  [{mode}] ({len(results)} results)")
     for rank, r in enumerate(results, start=1):
         snippet = r["text"][:160].replace("\n", " ")

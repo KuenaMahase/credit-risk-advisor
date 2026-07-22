@@ -136,12 +136,14 @@ OpenAI call or downloads a model:
 
 ```bash
 python -m unittest discover -s tests -v
+npx --yes pyright@1.1.411 --pythonpath .venv/bin/python
 ```
 
 The nine tests cover cloud cold-start behavior, the Streamlit entrypoint,
 database creation and metric breakdowns, model-aware cost calculation, citation
-context formatting, and reciprocal rank fusion. The same suite runs on Python
-3.12 for every push and pull request via
+context formatting, and reciprocal rank fusion. For every push and pull request,
+GitHub Actions installs the project on Python 3.12, compiles every source file,
+runs the pinned Pyright check, and executes the same nine tests via
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Evaluation

@@ -1,13 +1,25 @@
 import unittest
 
 from rag.search import _reciprocal_rank_fusion
+from rag.types import Chunk
+
+
+def chunk(chunk_id: str) -> Chunk:
+    return Chunk(
+        chunk_id=chunk_id,
+        source_id="basel-iii",
+        source_title="Basel III",
+        category="credit-risk",
+        page=1,
+        text=f"Passage {chunk_id}",
+    )
 
 
 class ReciprocalRankFusionTests(unittest.TestCase):
     def test_document_ranked_in_both_lists_wins(self):
-        a = {"chunk_id": "a"}
-        b = {"chunk_id": "b"}
-        c = {"chunk_id": "c"}
+        a = chunk("a")
+        b = chunk("b")
+        c = chunk("c")
 
         results = _reciprocal_rank_fusion([[a, b], [c, b]], k=10)
 

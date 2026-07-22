@@ -5,26 +5,28 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from monitoring import db
+from rag.types import AnswerResult, RewriteMetrics
 
 
 class MonitoringDatabaseTests(unittest.TestCase):
     def test_conversation_records_cost_and_latency_breakdown(self):
-        result = {
-            "answer": "The applicable risk weight is 100%.",
-            "search_mode": "rerank",
-            "model": "gpt-4o-mini",
-            "prompt_tokens": 700,
-            "completion_tokens": 40,
-            "total_tokens": 740,
-            "response_time": 1.25,
-            "cost": 0.000129,
-        }
-        rewrite = {
-            "query": "risk weight for unrated corporate exposures",
-            "tokens": 25,
-            "cost": 0.000004,
-            "time": 0.4,
-        }
+        result = AnswerResult(
+            answer="The applicable risk weight is 100%.",
+            sources=[],
+            search_mode="rerank",
+            model="gpt-4o-mini",
+            prompt_tokens=700,
+            completion_tokens=40,
+            total_tokens=740,
+            response_time=1.25,
+            cost=0.000129,
+        )
+        rewrite = RewriteMetrics(
+            query="risk weight for unrated corporate exposures",
+            tokens=25,
+            cost=0.000004,
+            time=0.4,
+        )
 
         with TemporaryDirectory() as tmp:
             database = Path(tmp) / "advisor.db"

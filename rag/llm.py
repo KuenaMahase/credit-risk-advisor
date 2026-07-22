@@ -20,11 +20,14 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Protocol
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from openai.types.responses.response_usage import ResponseUsage
 
 from rag.search import DEFAULT_NUM_RESULTS, SEARCH_MODES
+from rag.types import AnswerResult, Chunk
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
@@ -34,9 +37,16 @@ LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
 # Standard text-token prices in USD per 1M tokens. Custom models can be used by
 # setting both LLM_PRICE_PER_M_INPUT and LLM_PRICE_PER_M_OUTPUT in the
 # environment; requiring an explicit pair prevents silently incorrect costs.
-MODEL_PRICING = {
+MODEL_PRICING: dict[str, tuple[float, float]] = {
     "gpt-4o-mini": (0.15, 0.60),
 }
+
+
+class TokenUsage(Protocol):
+    """Token fields required for cost calculation."""
+
+    input_tokens: int
+    output_tokens: int
 
 
 def get_model_pricing(model: str = LLM_MODEL) -> tuple[float, float]:
@@ -60,7 +70,7 @@ def get_model_pricing(model: str = LLM_MODEL) -> tuple[float, float]:
 PRICE_PER_M_INPUT, PRICE_PER_M_OUTPUT = get_model_pricing()
 
 
-def calculate_cost(usage, model: str = LLM_MODEL) -> float:
+def calculate_cost(usage: TokenUsage, model: str = LLM_MODEL) -> float:
     """Return the standard API token cost for a response usage object."""
     input_price, output_price = get_model_pricing(model)
     return (
@@ -128,7 +138,7 @@ framework text.
 - Output ONLY the rewritten query, nothing else.""".strip()
 
 
-def rewrite_query_with_usage(question: str):
+def rewrite_query_with_usage(question: str) -> tuple[str, ResponseUsage]:
     """Rewrite a user query into framework terminology. Returns (query, usage)."""
     response = get_client().responses.create(
         model=LLM_MODEL,
@@ -138,7 +148,10 @@ def rewrite_query_with_usage(question: str):
         ],
         temperature=0.0,
     )
-    return response.output_text.strip(), response.usage
+    usage = response.usage
+    if usage is None:
+        raise RuntimeError("OpenAI response did not include token usage")
+    return response.output_text.strip(), usage
 
 
 def rewrite_query(question: str) -> str:
@@ -151,16 +164,18 @@ CONTEXT:
 {context}""".strip()
 
 
-def build_context(chunks: list[dict]) -> str:
+def build_context(chunks: list[Chunk]) -> str:
     entries = [f"[{c['source_title']}, p.{c['page']}]\n{c['text']}" for c in chunks]
     return "\n\n---\n\n".join(entries)
 
 
-def build_prompt(question: str, chunks: list[dict]) -> str:
+def build_prompt(question: str, chunks: list[Chunk]) -> str:
     return USER_PROMPT_TEMPLATE.format(question=question, context=build_context(chunks))
 
 
-def llm_with_usage(user_prompt: str, instructions: str = INSTRUCTIONS):
+def llm_with_usage(
+    user_prompt: str, instructions: str = INSTRUCTIONS
+) -> tuple[str, ResponseUsage]:
     """Call the LLM and return (answer_text, usage) for metrics logging."""
     response = get_client().responses.create(
         model=LLM_MODEL,
@@ -170,7 +185,10 @@ def llm_with_usage(user_prompt: str, instructions: str = INSTRUCTIONS):
         ],
         temperature=0.0,
     )
-    return response.output_text, response.usage
+    usage = response.usage
+    if usage is None:
+        raise RuntimeError("OpenAI response did not include token usage")
+    return response.output_text, usage
 
 
 def llm(user_prompt: str, instructions: str = INSTRUCTIONS) -> str:
@@ -182,7 +200,7 @@ def answer(
     question: str,
     search_mode: str = DEFAULT_SEARCH_MODE,
     num_results: int = DEFAULT_NUM_RESULTS,
-) -> dict:
+) -> AnswerResult:
     """Run the full RAG flow: retrieve -> build prompt -> call the LLM.
 
     Returns the answer plus sources and per-call metrics (tokens, cost,

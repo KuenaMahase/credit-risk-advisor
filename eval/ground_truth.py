@@ -75,6 +75,8 @@ def generate_for_chunk(client: OpenAI, chunk: dict, max_retries: int = 3) -> lis
                 text_format=Questions,
             )
             parsed = response.output_parsed
+            if parsed is None:
+                raise RuntimeError("OpenAI response did not include generated questions")
             return [
                 {
                     "question": q,

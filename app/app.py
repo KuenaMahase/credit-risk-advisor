@@ -10,9 +10,12 @@ log the conversation to the monitoring store -> auto-judge relevance
 thumbs up/down (saved as feedback source='user').
 """
 
+from __future__ import annotations
+
 import sys
 import time
 from pathlib import Path
+from typing import Optional, TypedDict, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -27,6 +30,19 @@ from rag.llm import (
     rewrite_query_with_usage,
 )
 from rag.search import SEARCH_MODES
+from rag.types import AnswerResult, RewriteMetrics
+
+
+class LastInteraction(TypedDict):
+    """Typed Streamlit session payload for the most recent answer."""
+
+    conversation_id: int
+    question: str
+    rewrite: RewriteMetrics | None
+    result: AnswerResult
+    relevance: str | None
+    explanation: str | None
+    voted: bool
 
 
 def render_app(set_page_config: bool = True) -> None:
@@ -47,12 +63,15 @@ def render_app(set_page_config: bool = True) -> None:
 
     with st.sidebar:
         st.header("Settings")
-        search_mode = st.selectbox(
-            "Retrieval mode",
-            options=list(SEARCH_MODES),
-            index=list(SEARCH_MODES).index(DEFAULT_SEARCH_MODE),
-            help="rerank won the retrieval evaluation (hit rate 0.911 / MRR 0.768) "
-            "and is the default; the others are kept for comparison.",
+        search_mode = cast(
+            str,
+            st.selectbox(
+                "Retrieval mode",
+                options=list(SEARCH_MODES),
+                index=list(SEARCH_MODES).index(DEFAULT_SEARCH_MODE),
+                help="rerank won the retrieval evaluation (hit rate 0.911 / MRR 0.768) "
+                "and is the default; the others are kept for comparison.",
+            ),
         )
         use_rewrite = st.checkbox(
             "Rewrite query into Basel terminology",
@@ -74,26 +93,29 @@ def render_app(set_page_config: bool = True) -> None:
     if st.button("Ask", type="primary") and question.strip():
         request_started = time.perf_counter()
         with st.spinner("Retrieving regulatory passages and generating an answer..."):
-            rewrite = None
+            rewrite: RewriteMetrics | None = None
             if use_rewrite:
                 start = time.perf_counter()
                 rewritten, usage = rewrite_query_with_usage(question)
-                rewrite = {
-                    "query": rewritten,
-                    "tokens": usage.total_tokens,
-                    "cost": calculate_cost(usage),
-                    "time": time.perf_counter() - start,
-                }
-            result = answer(
+                rewrite = RewriteMetrics(
+                    query=rewritten,
+                    tokens=usage.total_tokens,
+                    cost=calculate_cost(usage),
+                    time=time.perf_counter() - start,
+                )
+            result: AnswerResult = answer(
                 rewrite["query"] if rewrite else question,
                 search_mode=search_mode,
             )
             conversation_id = save_conversation(question, result, rewrite=rewrite)
             judge_tokens, judge_cost, judge_time = 0, 0.0, 0.0
+            relevance: str | None = None
+            explanation: str | None = None
+            judge_started = time.perf_counter()
             try:
-                judge_started = time.perf_counter()
                 relevance, explanation, judge_tokens, judge_cost = evaluate_relevance(
-                    question, result["answer"])
+                    question, result["answer"]
+                )
                 judge_time = time.perf_counter() - judge_started
                 save_feedback(
                     conversation_id,
@@ -115,21 +137,21 @@ def render_app(set_page_config: bool = True) -> None:
             )
             result["response_time"] = total_response_time
 
-        st.session_state.last = {
-            "conversation_id": conversation_id,
-            "question": question,
-            "rewrite": rewrite,
-            "result": result,
-            "relevance": relevance,
-            "explanation": explanation,
-            "voted": False,
-        }
+        st.session_state["last"] = LastInteraction(
+            conversation_id=conversation_id,
+            question=question,
+            rewrite=rewrite,
+            result=result,
+            relevance=relevance,
+            explanation=explanation,
+            voted=False,
+        )
 
-    last = st.session_state.get("last")
+    last = cast(Optional[LastInteraction], st.session_state.get("last"))
     if last:
         result = last["result"]
         st.markdown(f"**Q:** {last['question']}")
-        if last.get("rewrite"):
+        if last["rewrite"] is not None:
             rw = last["rewrite"]
             st.caption(
                 f"Query rewritten to: {rw['query']} "
@@ -159,11 +181,13 @@ def render_app(set_page_config: bool = True) -> None:
             col1, col2, _ = st.columns([1, 1, 6])
             if col1.button("👍 Helpful"):
                 save_feedback(last["conversation_id"], "user", score=1)
-                st.session_state.last["voted"] = True
+                last["voted"] = True
+                st.session_state["last"] = last
                 st.rerun()
             if col2.button("👎 Not helpful"):
                 save_feedback(last["conversation_id"], "user", score=-1)
-                st.session_state.last["voted"] = True
+                last["voted"] = True
+                st.session_state["last"] = last
                 st.rerun()
         else:
             st.caption("Thanks for the feedback!")

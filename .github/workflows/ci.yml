@@ -31,5 +31,8 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q app eval ingestion monitoring rag tests streamlit_app.py
 
+      - name: Type-check Python sources
+        run: npx --yes pyright@1.1.411 --pythonpath "$(which python)"
+
       - name: Run unit and Streamlit smoke tests
         run: python -m unittest discover -s tests -v

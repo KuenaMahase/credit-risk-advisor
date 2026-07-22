@@ -60,6 +60,10 @@ def evaluate_relevance(question: str, answer: str, max_retries: int = 3) -> tupl
             )
             verdict = response.output_parsed
             usage = response.usage
+            if verdict is None:
+                raise RuntimeError("OpenAI judge response did not include a verdict")
+            if usage is None:
+                raise RuntimeError("OpenAI judge response did not include token usage")
             cost = calculate_cost(usage)
             return verdict.relevance, verdict.explanation, usage.total_tokens, cost
         except Exception:  # noqa: BLE001

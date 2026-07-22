@@ -126,7 +126,10 @@ def judge_answer(question: str, source_text: str, answer: str,
                 ],
                 text_format=AnswerEvaluation,
             )
-            return response.output_parsed
+            evaluation = response.output_parsed
+            if evaluation is None:
+                raise RuntimeError("OpenAI judge response did not include an evaluation")
+            return evaluation
         except Exception:  # noqa: BLE001
             if attempt == max_retries - 1:
                 raise
