@@ -78,8 +78,10 @@ docker compose up --build
 Everything runs in compose: the assistant and the monitoring dashboard share
 one image and one SQLite volume. The image build downloads the source PDF,
 builds the knowledge base with the dlt pipeline, and bakes the embedding +
-reranking models in — so `up` needs no other host-side steps. The first build
-takes a while (PyTorch); rebuilds are cached.
+reranking models in — so `up` needs no other host-side steps. Expect the first
+build to take about 6 minutes (CPU-only PyTorch is preinstalled to avoid the
+multi-GB CUDA wheels); rebuilds are cached. Both services expose health checks
+(`docker compose ps` shows `healthy`).
 
 ### Local (venv)
 
@@ -143,6 +145,26 @@ answer, so retrieval misses are folded into end-to-end quality.
 Caveats worth knowing: the margin is small (3 answers out of 200), and the
 judge is the same model family as the generator (gpt-4o-mini judging
 gpt-4o-mini) — a standard setup for course projects, but a known bias.
+
+### Query rewriting
+
+An LLM step that rewrites the user's query into framework terminology
+(`rewrite_query` in `rag/llm.py` — e.g. *"CCF for trade LCs?"* → *"What is the
+credit conversion factor for trade letters of credit…"*) was evaluated on the
+same 450 ground-truth questions (`python -m eval.evaluate_rewrite`):
+
+| Queries   | Hit rate  | MRR       | Overhead per query   |
+|-----------|-----------|-----------|----------------------|
+| original  | **0.911** | **0.768** | —                    |
+| rewritten | 0.753     | 0.586     | +1.7 s, ~211 tokens  |
+
+Rewriting **hurts** on this ground truth, so it is **off by default** and
+exposed as an evaluated optional toggle in the app. Why: the ground-truth
+questions are LLM-generated from the framework text, so they already use the
+framework's own vocabulary — rewriting paraphrases them away from the wording
+retrieval matches on. The toggle exists for the case rewriting was built for:
+terse practitioner shorthand (like the CCF example above), which the ground
+truth does not contain.
 
 ## Monitoring
 

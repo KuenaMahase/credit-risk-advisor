@@ -77,6 +77,37 @@ Method:
 # 200 questions). Margin is small; see README Evaluation for caveats.
 INSTRUCTIONS = INSTRUCTIONS_QUOTE_FIRST
 
+REWRITE_INSTRUCTIONS = """You rewrite an analyst's search query about the Basel III standardised
+approach for credit risk so that it retrieves the right passage from the
+framework text.
+
+- Expand abbreviations and informal phrasing into the framework's own
+  terminology, e.g. CCF -> credit conversion factor, LTV -> loan-to-value
+  ratio, CRM -> credit risk mitigation, RW -> risk weight, PD/LGD/EAD ->
+  probability of default / loss given default / exposure at default,
+  QCCP -> qualifying central counterparty, SFT -> securities financing
+  transaction, reso mortgage/home loan -> residential real estate exposure.
+- Keep it a single concise question; do not add topics the analyst did not ask about.
+- Output ONLY the rewritten query, nothing else.""".strip()
+
+
+def rewrite_query_with_usage(question: str):
+    """Rewrite a user query into framework terminology. Returns (query, usage)."""
+    response = get_client().responses.create(
+        model=LLM_MODEL,
+        input=[
+            {"role": "developer", "content": REWRITE_INSTRUCTIONS},
+            {"role": "user", "content": question},
+        ],
+        temperature=0.0,
+    )
+    return response.output_text.strip(), response.usage
+
+
+def rewrite_query(question: str) -> str:
+    rewritten, _ = rewrite_query_with_usage(question)
+    return rewritten
+
 USER_PROMPT_TEMPLATE = """QUESTION: {question}
 
 CONTEXT:

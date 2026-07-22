@@ -19,7 +19,7 @@ import streamlit as st
 
 from monitoring.db import save_conversation, save_feedback
 from monitoring.judge import evaluate_relevance
-from rag.llm import DEFAULT_SEARCH_MODE, answer
+from rag.llm import DEFAULT_SEARCH_MODE, answer, rewrite_query
 from rag.search import SEARCH_MODES
 
 st.set_page_config(page_title="Credit Risk Advisor", page_icon="🏦")
@@ -39,6 +39,14 @@ with st.sidebar:
         help="rerank won the retrieval evaluation (hit rate 0.911 / MRR 0.768) "
         "and is the default; the others are kept for comparison.",
     )
+    use_rewrite = st.checkbox(
+        "Rewrite query into Basel terminology",
+        value=False,
+        help="Expands shorthand like 'CCF for trade LCs' into framework wording "
+        "before retrieval. Off by default: on already-well-formed questions the "
+        "evaluation showed it reduces hit rate (0.911 → 0.753) and adds ~1.7s "
+        "— see the README's Evaluation section.",
+    )
     st.markdown(
         "Example questions:\n"
         "- What is the risk weight for an unrated corporate exposure?\n"
@@ -50,7 +58,8 @@ question = st.text_input("Ask a question about the Basel III credit-risk framewo
 
 if st.button("Ask", type="primary") and question.strip():
     with st.spinner("Retrieving regulatory passages and generating an answer..."):
-        result = answer(question, search_mode=search_mode)
+        rewritten = rewrite_query(question) if use_rewrite else None
+        result = answer(rewritten or question, search_mode=search_mode)
         conversation_id = save_conversation(question, result)
         try:
             relevance, explanation = evaluate_relevance(question, result["answer"])
@@ -61,6 +70,7 @@ if st.button("Ask", type="primary") and question.strip():
     st.session_state.last = {
         "conversation_id": conversation_id,
         "question": question,
+        "rewritten": rewritten,
         "result": result,
         "relevance": relevance,
         "explanation": explanation,
@@ -71,6 +81,8 @@ last = st.session_state.get("last")
 if last:
     result = last["result"]
     st.markdown(f"**Q:** {last['question']}")
+    if last.get("rewritten"):
+        st.caption(f"Query rewritten to: {last['rewritten']}")
     st.markdown(result["answer"])
 
     if result["sources"]:

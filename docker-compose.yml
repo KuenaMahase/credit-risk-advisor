@@ -1,8 +1,8 @@
 # Everything runs in compose: the assistant app and the monitoring dashboard
-# share one image and one SQLite volume (the app writes conversations and
-# feedback; the dashboard reads them).
+# share one image (built once) and one SQLite volume (the app writes
+# conversations and feedback; the dashboard reads them).
 #
-#   docker compose up --build
+#   docker compose up --build     # first build ~6 minutes
 #   app:       http://localhost:8501
 #   dashboard: http://localhost:8502
 #
@@ -11,6 +11,7 @@
 services:
   app:
     build: .
+    image: credit-risk-advisor
     ports:
       - "8501:8501"
     env_file:
@@ -19,17 +20,33 @@ services:
       ADVISOR_DB_PATH: /data/advisor.db
     volumes:
       - monitoring_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   dashboard:
-    build: .
+    image: credit-risk-advisor
     command: ["streamlit", "run", "monitoring/dashboard.py",
               "--server.port=8502", "--server.address=0.0.0.0"]
+    depends_on:
+      - app
     ports:
       - "8502:8502"
     environment:
       ADVISOR_DB_PATH: /data/advisor.db
     volumes:
       - monitoring_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8502/_stcore/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   monitoring_data:
