@@ -68,6 +68,31 @@ the current BIS terms and request permission where required. The consolidated
 [Basel Framework](https://www.bis.org/basel_framework/) is the current
 authoritative standard; this corpus is the December 2017 publication snapshot.
 
+## References
+
+Official sources accessed 22 July 2026:
+
+1. Basel Committee on Banking Supervision. *Basel III: Finalising post-crisis
+   reforms*. Bank for International Settlements, 7 December 2017.
+   [Publication page](https://www.bis.org/bcbs/publ/d424.htm) and
+   [official PDF](https://www.bis.org/bcbs/publ/d424.pdf).
+2. Basel Committee on Banking Supervision. [Basel
+   Framework](https://www.bis.org/basel_framework/). Current consolidated
+   standards incorporating the December 2017 publication.
+3. Bank for International Settlements. [Terms and conditions of
+   use](https://www.bis.org/terms_conditions.htm). Copyright, non-commercial
+   use, attribution, limited-extract, and linking conditions.
+4. Bank for International Settlements. [Permission
+   requests](https://www.bis.org/permission_requests.htm). Procedure for uses
+   outside the conditions allowed without written permission.
+5. OpenAI. [Data controls in the OpenAI
+   platform](https://platform.openai.com/docs/models/default-usage-policies-by-endpoint).
+   API training, storage, abuse-monitoring, and retention controls.
+
+Machine-readable source metadata and the complete third-party notice are in
+[`ingestion/sources.yaml`](ingestion/sources.yaml) and
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), respectively.
+
 ## Disclaimer
 
 This is an **educational demonstration** built for the LLM Zoomcamp course.
